@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gestión de Pedidos</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Auth Screen -->
+    <div id="authScreen" class="auth-container">
+        <h2 id="authTitle">Iniciar Sesión</h2>
+        <div id="authError" class="error-message hidden"></div>
+        <form id="authForm">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="authEmail" required>
+            </div>
+            <div class="form-group">
+                <label>Contraseña</label>
+                <input type="password" id="authPassword" required>
+            </div>
+            <button type="submit" class="auth-btn" id="authSubmitBtn">Iniciar Sesión</button>
+        </form>
+    </div>
+
+    <!-- Main App -->
+    <div id="mainApp" class="hidden">
+        <div class="container">
+            <div class="header">
+                <span class="user-email" id="userEmail"></span>
+                <h1>📚 Sistema de Gestión de Pedidos</h1>
+                <p>Organiza tus pedidos por mes</p>
+                <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
+            </div>
+
+            <div class="months-container">
+                <h2 style="margin-bottom: 20px; color: #333;">Selecciona un mes</h2>
+                <div class="months-grid" id="monthsGrid"></div>
+                <select class="months-select" id="monthsSelect" onchange="selectMonth(this.value)"></select>
+            </div>
+
+            <div class="content-area">
+                <div class="controls-row">
+                    <button class="add-order-btn" onclick="openModal()">+ Agregar Pedido</button>
+                    <button class="sort-btn" onclick="toggleSort()">📅 Ordenar por Fecha</button>
+                </div>
+                <div class="orders-list" id="ordersList"></div>
+            </div>
+        </div>
+
+        <!-- Modal -->
+        <div class="modal" id="orderModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeModal()">&times;</span>
+                <h2 style="color: #667eea; margin-bottom: 30px;" id="modalTitle">Nuevo Pedido</h2>
+                
+                <form id="orderForm">
+                    <input type="hidden" id="editingOrderId">
+                    
+                    <div class="form-group">
+                        <label>Nombre de quien pidió *</label>
+                        <input type="text" id="customerName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha del Pedido *</label>
+                        <input type="date" id="orderDate" required>
+                    </div>
+
+                    <div class="products-container">
+                        <h3 style="color: #667eea; margin-bottom: 20px;">Productos</h3>
+                        <div id="productsContainer"></div>
+                        <button type="button" class="add-product-btn" onclick="addProduct()">
+                            <span>+</span> Agregar Producto
+                        </button>
+                    </div>
+
+                    <div class="total-calculator">
+                        <h3>Precio Final</h3>
+                        <div class="price" id="totalPrice">$0.00</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Medio de Pago *</label>
+                        <select id="paymentMethod" required>
+                            <option value="">Seleccionar...</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Mercado Pago">Mercado Pago</option>
+                            <option value="Tarjeta">Tarjeta</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group" id="paymentStatusGroup">
+                        <label>Estado del Pago *</label>
+                        <select id="paymentStatus" required>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="Pagado">Pagado</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="orderStatusGroup">
+                        <label>Estado del Pedido *</label>
+                        <select id="orderStatus" required>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Completado">Completado</option>
+                            <option value="Entregado">Entregado</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="submit-btn" id="submitBtn">Guardar Pedido</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, getDocs } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBmRg2Hla2Mf4fa6ZNHt4dWRzYyymSImXM",
+            authDomain: "mica-dashboard.firebaseapp.com",
+            projectId: "mica-dashboard",
+            storageBucket: "mica-dashboard.firebasestorage.app",
+            messagingSenderId: "426422186199",
+            appId: "1:426422186199:web:47a433a61d61d80852c092",
+            measurementId: "G-1TQWM3LRVX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.auth = auth;
+        window.db = db;
+        window.firestoreLib = { collection, addDoc, updateDoc, deleteDoc, doc, query, where, onSnapshot, getDocs };
+
+        // Auth state observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                document.getElementById('authScreen').classList.add('hidden');
+                document.getElementById('mainApp').classList.remove('hidden');
+                document.getElementById('userEmail').textContent = user.email;
+                window.currentUser = user;
+                init();
+            } else {
+                document.getElementById('authScreen').classList.remove('hidden');
+                document.getElementById('mainApp').classList.add('hidden');
+                window.currentUser = null;
+            }
+        });
+
+        // Auth form handling - SOLO LOGIN
+        const authForm = document.getElementById('authForm');
+        const authError = document.getElementById('authError');
+
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+            authError.classList.add('hidden');
+
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                let errorMessage = 'Error al iniciar sesión';
+                if (error.code === 'auth/invalid-credential') {
+                    errorMessage = 'Email o contraseña incorrectos';
+                } else if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Usuario no encontrado';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Contraseña incorrecta';
+                }
+                authError.textContent = errorMessage;
+                authError.classList.remove('hidden');
+            }
+        });
+
+        window.logout = async () => {
+            await signOut(auth);
+        };
+    </script>
+    <script src="script.js"></script>
+
+</body>
+</html>
