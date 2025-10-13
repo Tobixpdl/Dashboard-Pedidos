@@ -29,13 +29,11 @@
         <div class="container">
             <div class="header">
                 <span class="user-email" id="userEmail"></span>
-                <h1>📚 Sistema de Gestión de Pedidos</h1>
-                <p>Organiza tus pedidos por mes</p>
+                <h1>📚Gestión de Pedidos</h1>
                 <button class="logout-btn" onclick="logout()">Cerrar Sesión</button>
             </div>
 
             <div class="months-container">
-                <h2 style="margin-bottom: 20px; color: #333;">Selecciona un mes</h2>
                 <div class="months-grid" id="monthsGrid"></div>
                 <select class="months-select" id="monthsSelect" onchange="selectMonth(this.value)"></select>
             </div>
@@ -43,7 +41,12 @@
             <div class="content-area">
                 <div class="controls-row">
                     <button class="add-order-btn" onclick="openModal()">+ Agregar Pedido</button>
-                    <button class="sort-btn" onclick="toggleSort()">📅 Ordenar por Fecha</button>
+                    <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
+                        <option value="date-asc">Fecha de Pedido (Antigua → Nueva)</option>
+                        <option value="date-desc">Fecha de Pedido (Nueva → Antigua)</option>
+                        <option value="delivery-asc">Fecha Estimada (Próxima → Lejana)</option>
+                        <option value="delivery-desc">Fecha Estimada (Lejana → Próxima)</option>
+                    </select>
                 </div>
                 <div class="orders-list" id="ordersList"></div>
             </div>
@@ -66,6 +69,11 @@
                     <div class="form-group">
                         <label>Fecha del Pedido *</label>
                         <input type="date" id="orderDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Fecha Estimada de Entrega</label>
+                        <input type="date" id="deliveryDate">
                     </div>
 
                     <div class="products-container">

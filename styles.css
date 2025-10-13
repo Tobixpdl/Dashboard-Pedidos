@@ -243,21 +243,27 @@ body {
     box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
 }
 
-.sort-btn {
+.sort-select {
     background: white;
     color: #667eea;
     border: 2px solid #667eea;
-    padding: 15px 30px;
+    padding: 15px 20px;
     border-radius: 10px;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
+    min-width: 300px;
 }
 
-.sort-btn:hover {
-    background: #667eea;
-    color: white;
+.sort-select:hover {
+    background: #f8f9fa;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: #764ba2;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
 }
 
 .modal {
@@ -384,6 +390,7 @@ body {
     padding: 25px;
     transition: all 0.3s ease;
     position: relative;
+    padding-top: 70px;
 }
 
 .order-card:hover {
@@ -433,7 +440,6 @@ body {
     margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 2px solid #f0f0f0;
-    padding-right: 180px;
 }
 
 .order-header h3 {
@@ -561,6 +567,40 @@ body {
     display: none;
 }
 
+.products-collapsible {
+    margin-top: 10px;
+}
+
+.toggle-products {
+    background: #667eea;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    width: 100%;
+    justify-content: center;
+}
+
+.toggle-products:hover {
+    background: #5568d3;
+}
+
+.toggle-icon {
+    font-size: 12px;
+    transition: transform 0.3s ease;
+}
+
+.product-list.collapsed {
+    display: none;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .header h1 {
@@ -588,14 +628,16 @@ body {
     }
 
     .order-header {
-        flex-direction: column;
-        align-items: flex-start;
+        align-items: center;
         padding-right: 0;
+        padding-bottom: 5px;
+        margin-bottom: 10px;
     }
 
     .order-actions {
         position: static;
         margin-bottom: 15px;
+        justify-content: end;
     }
 
     .modal-content {
@@ -609,5 +651,46 @@ body {
 
     .add-order-btn, .sort-btn {
         width: 100%;
+        font-size: small;
     }
+
+    .order-card{
+        padding-top: 10px;
+    }
+
+    .sort-select {
+        font-size: small;
+    }
+
+    .months-container{
+        padding-top: 5px;
+        padding-bottom: 5px;
+    }
+
+    .order-details{
+        gap:10px;
+        font-size: small;
+    }
+
+    .detail-row{
+        justify-content: space-between;
+    }
+
+    .status-badge{
+        display: inline-block;
+        padding: 1px 15px;
+        border-radius: 15px;
+        font-size: small;
+        font-weight: 600;
+    }
+
+    .product-list{
+        margin-top: 0;
+        padding: 10px;
+    }
+
+    .price-total{
+        margin-top: 0;
+    }
+
 }

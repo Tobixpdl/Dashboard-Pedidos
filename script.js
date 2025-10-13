@@ -17,7 +17,7 @@ const months = [
 let orders = [];
 let currentMonth = null;
 let productCounter = 0;
-let sortByDateAsc = true;
+let currentSortOption = 'date-asc';
 let unsubscribe = null;
 
 function init() {
@@ -83,8 +83,8 @@ function toggleMonthVisibility(monthId) {
     }
 }
 
-function toggleSort() {
-    sortByDateAsc = !sortByDateAsc;
+function changeSortOption() {
+    currentSortOption = document.getElementById('sortSelect').value;
     renderOrders();
 }
 
@@ -104,6 +104,7 @@ function openModal(orderId = null) {
             document.getElementById('editingOrderId').value = orderId;
             document.getElementById('customerName').value = order.customerName;
             document.getElementById('orderDate').value = order.date;
+            document.getElementById('deliveryDate').value = order.deliveryDate || '';
             document.getElementById('paymentMethod').value = order.paymentMethod;
             document.getElementById('paymentStatus').value = order.paymentStatus;
             document.getElementById('orderStatus').value = order.orderStatus;
@@ -131,6 +132,7 @@ function closeModal() {
     productCounter = 0;
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('orderDate').value = today;
+    document.getElementById('deliveryDate').value = '';
 }
 
 function addProduct(productData = null) {
@@ -214,6 +216,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
     const editingOrderId = document.getElementById('editingOrderId').value;
     const customerName = document.getElementById('customerName').value;
     const orderDate = document.getElementById('orderDate').value;
+    const deliveryDate = document.getElementById('deliveryDate').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
     const paymentStatus = document.getElementById('paymentStatus').value;
     const orderStatus = document.getElementById('orderStatus').value;
@@ -239,6 +242,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                         orderStatus,
                         totalPrice,
                         date: orderDate,
+                        deliveryDate,
                         updatedAt: new Date().toISOString()
                     });
                 } else {
@@ -252,6 +256,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                         orderStatus: 'Pendiente',
                         totalPrice,
                         date: orderDate,
+                        deliveryDate, 
                         createdAt: new Date().toISOString()
                     });
                 }
@@ -318,9 +323,19 @@ function renderOrders() {
     let monthOrders = orders.filter(o => o.month === currentMonth);
 
     monthOrders.sort((a, b) => {
-        const dateA = new Date(a.date);
-        const dateB = new Date(b.date);
-        return sortByDateAsc ? dateA - dateB : dateB - dateA;
+        if (currentSortOption === 'date-asc') {
+            return new Date(a.date) - new Date(b.date);
+        } else if (currentSortOption === 'date-desc') {
+            return new Date(b.date) - new Date(a.date);
+        } else if (currentSortOption === 'delivery-asc') {
+            const dateA = a.deliveryDate ? new Date(a.deliveryDate) : new Date('9999-12-31');
+            const dateB = b.deliveryDate ? new Date(b.deliveryDate) : new Date('9999-12-31');
+            return dateA - dateB;
+        } else if (currentSortOption === 'delivery-desc') {
+            const dateA = a.deliveryDate ? new Date(a.deliveryDate) : new Date('1900-01-01');
+            const dateB = b.deliveryDate ? new Date(b.deliveryDate) : new Date('1900-01-01');
+            return dateB - dateA;
+        }
     });
 
     if (monthOrders.length === 0) {
@@ -338,6 +353,7 @@ function renderOrders() {
             <div class="order-header">
                 <h3>${order.customerName}</h3>
                 <span class="order-date">${order.date}</span>
+                ${order.deliveryDate ? `<span class="order-date" style="color: #667eea;">📦 Entrega: ${order.deliveryDate}</span>` : ''}
             </div>
             
             <div class="order-details">
@@ -370,17 +386,23 @@ function renderOrders() {
                 <div class="detail-row">
                     <span class="detail-label">Productos:</span>
                 </div>
-                <div class="product-list">
-                    ${order.products.map((p, i) => `
-                        <div class="product-list-item">
-                            <strong>${p.name}</strong><br>
-                            ${p.description ? `<strong>Descripción:</strong> ${p.description}<br>` : ''}
-                            <strong>Color de anillado:</strong> ${p.color}<br>
-                            ${p.coverText ? `<strong>Texto de tapa:</strong> ${p.coverText}<br>` : ''}
-                            ${p.coverImage ? `<img src="${p.coverImage}" class="cover-image"><br>` : ''}
-                            <strong>Precio:</strong> ${p.price.toFixed(2)}
-                        </div>
-                    `).join('')}
+                <div class="products-collapsible">
+                    <button class="toggle-products" onclick="toggleProducts('${order.id}')">
+                        <span class="toggle-icon" id="icon-${order.id}">▶</span>
+                        Ver Productos (${order.products.length})
+                    </button>
+                    <div class="product-list collapsed" id="products-${order.id}">
+                        ${order.products.map((p, i) => `
+                            <div class="product-list-item">
+                                <strong>${p.name}</strong><br>
+                                ${p.description ? `<strong>Descripción:</strong> ${p.description}<br>` : ''}
+                                <strong>Color de anillado:</strong> ${p.color}<br>
+                                ${p.coverText ? `<strong>Texto de tapa:</strong> ${p.coverText}<br>` : ''}
+                                ${p.coverImage ? `<img src="${p.coverImage}" class="cover-image"><br>` : ''}
+                                <strong>Precio:</strong> ${p.price.toFixed(2)}
+                            </div>
+                        `).join('')}
+                    </div>
                 </div>
                 
                 <div class="price-total">
@@ -389,4 +411,18 @@ function renderOrders() {
             </div>
         </div>
     `).join('');
+
+}
+
+function toggleProducts(orderId) {
+    const productList = document.getElementById(`products-${orderId}`);
+    const icon = document.getElementById(`icon-${orderId}`);
+    
+    if (productList.classList.contains('collapsed')) {
+        productList.classList.remove('collapsed');
+        icon.textContent = '▼';
+    } else {
+        productList.classList.add('collapsed');
+        icon.textContent = '▶';
+    }
 }
