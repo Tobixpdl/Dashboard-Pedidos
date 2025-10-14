@@ -66,6 +66,16 @@
                         <input type="text" id="customerName" required>
                     </div>
 
+                    <div class="form-group" id="emailGroup">
+                        <label>Email del Comprador</label>
+                        <input type="email" id="customerEmail" placeholder="email@ejemplo.com">
+                    </div>
+
+                    <div class="form-group" id="phoneGroup">
+                        <label>Teléfono del Comprador</label>
+                        <input type="tel" id="customerPhone" placeholder="+54 11 1234-5678">
+                    </div>
+
                     <div class="form-group">
                         <label>Fecha del Pedido *</label>
                         <input type="date" id="orderDate" required>
@@ -193,7 +203,13 @@
             await signOut(auth);
         };
     </script>
-    <script src="script.js"></script>
 
+     <!-- EmailJS -->
+     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+     <script>
+         emailjs.init('TPkXo4sV9eELRdA9U');
+     </script>
+    <script src="script.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>

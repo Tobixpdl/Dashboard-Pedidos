@@ -20,6 +20,55 @@ let productCounter = 0;
 let currentSortOption = 'date-asc';
 let unsubscribe = null;
 
+// 🔧 Función para enviar email cuando cambia el estado
+async function sendOrderStatusEmail(order, oldStatus, newStatus) {
+    if (!order.emailComprador || oldStatus === newStatus) return;
+    
+    try {
+        await emailjs.send('service_j1geh17', 'template_vofz6ar', {
+            to_email: order.emailComprador,
+            to_name: order.customerName,
+            order_status: newStatus,
+            payment_status: order.paymentStatus,
+            products_list: order.products.map(p => `${p.name} - $${p.price.toFixed(2)}`).join('\n'),
+            total_price: order.totalPrice.toFixed(2),
+            delivery_date: order.deliveryDate || 'Por confirmar'
+        });
+        
+        console.log('✅ Email de actualización enviado a:', order.emailComprador);
+    } catch (error) {
+        console.error('❌ Error al enviar email de actualización:', error);
+        Swal.fire({
+            title: 'Pedido actualizado',
+            text: 'Pero hubo un error al enviar el email de notificación',
+            icon: 'warning',
+            confirmButtonColor: '#667eea'
+        });    }
+}
+
+async function sendNewOrderEmail(order) {
+    if (!order.emailComprador) return;
+    
+    try {
+        await emailjs.send('service_j1geh17', 'template_ebl81v4', {
+            to_email: order.emailComprador,
+            to_name: order.customerName,
+            products_list: order.products.map(p => `${p.name} - $${p.price.toFixed(2)}`).join('\n'),
+            total_price: order.totalPrice.toFixed(2),
+            delivery_date: order.deliveryDate || 'Por confirmar'
+        });
+        
+        console.log('✅ Email de nuevo pedido enviado a:', order.emailComprador);
+    } catch (error) {
+        console.error('❌ Error al enviar email de nuevo pedido:', error);
+        Swal.fire({
+            title: 'Pedido creado',
+            text: 'Pero hubo un error al enviar el email de confirmación',
+            icon: 'warning',
+            confirmButtonColor: '#667eea'
+        });    }
+}
+
 function init() {
     renderMonths();
     selectMonth(months[0].id);
@@ -94,8 +143,11 @@ function openModal(orderId = null) {
     productCounter = 0;
 
     if (orderId) {
+        // Modo edición - mostrar todos los campos
         document.getElementById('paymentStatusGroup').style.display = 'block';
         document.getElementById('orderStatusGroup').style.display = 'block';
+        document.getElementById('emailGroup').style.display = 'block';
+        document.getElementById('phoneGroup').style.display = 'block';
         
         const order = orders.find(o => o.id === orderId);
         if (order) {
@@ -103,6 +155,8 @@ function openModal(orderId = null) {
             document.getElementById('submitBtn').textContent = 'Actualizar Pedido';
             document.getElementById('editingOrderId').value = orderId;
             document.getElementById('customerName').value = order.customerName;
+            document.getElementById('customerEmail').value = order.emailComprador || '';
+            document.getElementById('customerPhone').value = order.telefonoComprador || '';
             document.getElementById('orderDate').value = order.date;
             document.getElementById('deliveryDate').value = order.deliveryDate || '';
             document.getElementById('paymentMethod').value = order.paymentMethod;
@@ -114,12 +168,17 @@ function openModal(orderId = null) {
             });
         }
     } else {
+        // Modo nuevo pedido
         document.getElementById('paymentStatusGroup').style.display = 'none';
         document.getElementById('orderStatusGroup').style.display = 'none';
+        document.getElementById('emailGroup').style.display = 'block';
+        document.getElementById('phoneGroup').style.display = 'block';
         
         document.getElementById('modalTitle').textContent = 'Nuevo Pedido';
         document.getElementById('submitBtn').textContent = 'Guardar Pedido';
         document.getElementById('editingOrderId').value = '';
+        document.getElementById('customerEmail').value = '';
+        document.getElementById('customerPhone').value = '';
         addProduct();
     }
     
@@ -215,11 +274,55 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
 
     const editingOrderId = document.getElementById('editingOrderId').value;
     const customerName = document.getElementById('customerName').value;
+    const customerEmail = document.getElementById('customerEmail').value;
+    const customerPhone = document.getElementById('customerPhone').value;
     const orderDate = document.getElementById('orderDate').value;
     const deliveryDate = document.getElementById('deliveryDate').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
     const paymentStatus = document.getElementById('paymentStatus').value;
     const orderStatus = document.getElementById('orderStatus').value;
+
+    // ⚠️ ALERTAS DE CONFIRMACIÓN
+    if (editingOrderId) {
+        const confirmUpdate = await Swal.fire({
+            title: '¿Actualizar este pedido?',
+            html: customerEmail 
+                ? '📧 Se enviará un email de notificación si cambió el estado del pedido.' 
+                : '⚠️ No se enviará email (no hay email del cliente).',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#667eea',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, actualizar',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!confirmUpdate.isConfirmed) return;
+    } else {
+        const confirmCreate = await Swal.fire({
+            title: '¿Crear este pedido?',
+            html: customerEmail 
+                ? '📧 Se enviará un email de confirmación al cliente.' 
+                : '⚠️ No se enviará email (no hay email del cliente).',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#667eea',
+            cancelButtonColor: '#d33',
+            confirmButtonText: 'Sí, crear',
+            cancelButtonText: 'Cancelar'
+        });
+        if (!confirmCreate.isConfirmed) return;
+    }
+
+    // 🔄 MOSTRAR LOADING
+    Swal.fire({
+        title: editingOrderId ? 'Actualizando pedido...' : 'Guardando pedido...',
+        html: customerEmail ? 'Por favor espera mientras se guarda el pedido y se envía el email' : 'Por favor espera...',
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
 
     const products = [];
     const productItems = document.querySelectorAll('.product-item');
@@ -233,9 +336,15 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
 
             try {
                 if (editingOrderId) {
+                    // EDITAR PEDIDO EXISTENTE
+                    const oldOrder = orders.find(o => o.id === editingOrderId);
+                    const oldStatus = oldOrder?.orderStatus;
+                    
                     const orderRef = doc(window.db, 'orders', editingOrderId);
                     await updateDoc(orderRef, {
                         customerName,
+                        emailComprador: customerEmail,
+                        telefonoComprador: customerPhone,
                         products,
                         paymentMethod,
                         paymentStatus,
@@ -245,11 +354,27 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                         deliveryDate,
                         updatedAt: new Date().toISOString()
                     });
+                    
+                    // 📧 ENVIAR EMAIL SI CAMBIÓ EL ESTADO DEL PEDIDO
+                    if (oldStatus !== orderStatus && customerEmail) {
+                        await sendOrderStatusEmail({
+                            customerName,
+                            emailComprador: customerEmail,
+                            products,
+                            paymentStatus,
+                            orderStatus,
+                            totalPrice,
+                            deliveryDate
+                        }, oldStatus, orderStatus);
+                    }
                 } else {
+                    // CREAR NUEVO PEDIDO
                     await addDoc(collection(window.db, 'orders'), {
                         userId: window.currentUser.uid,
                         month: currentMonth,
                         customerName,
+                        emailComprador: customerEmail,
+                        telefonoComprador: customerPhone,
                         products,
                         paymentMethod,
                         paymentStatus: 'Pendiente',
@@ -259,11 +384,39 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                         deliveryDate, 
                         createdAt: new Date().toISOString()
                     });
+
+                    // 📧 ENVIAR EMAIL DE NUEVO PEDIDO
+                    if (customerEmail) {
+                        await sendNewOrderEmail({
+                            customerName,
+                            emailComprador: customerEmail,
+                            products,
+                            paymentStatus: 'Pendiente',
+                            orderStatus: 'Pendiente',
+                            totalPrice,
+                            deliveryDate
+                        });
+                    }
                 }
+
+                // ✅ CERRAR LOADING Y MOSTRAR ÉXITO
+                Swal.fire({
+                    title: '¡Listo!',
+                    text: editingOrderId ? 'Pedido actualizado correctamente' : 'Pedido creado correctamente',
+                    icon: 'success',
+                    confirmButtonColor: '#667eea',
+                    timer: 2000
+                });
 
                 closeModal();
             } catch (error) {
-                alert('Error al guardar: ' + error.message);
+                // ❌ CERRAR LOADING Y MOSTRAR ERROR
+                Swal.fire({
+                    title: 'Error al guardar',
+                    text: error.message,
+                    icon: 'error',
+                    confirmButtonColor: '#667eea'
+                });
             }
         }
     };
@@ -308,12 +461,35 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
 });
 
 async function deleteOrder(orderId) {
-    if (confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
+    const result = await Swal.fire({
+        title: '¿Eliminar este pedido?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#667eea',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
         const { deleteDoc, doc } = window.firestoreLib;
         try {
             await deleteDoc(doc(window.db, 'orders', orderId));
+            Swal.fire({
+                title: '¡Eliminado!',
+                text: 'El pedido ha sido eliminado correctamente',
+                icon: 'success',
+                confirmButtonColor: '#667eea',
+                timer: 2000
+            });
         } catch (error) {
-            alert('Error al eliminar: ' + error.message);
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudo eliminar el pedido: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
         }
     }
 }
@@ -357,6 +533,20 @@ function renderOrders() {
             </div>
             
             <div class="order-details">
+                ${order.emailComprador ? `
+                <div class="detail-row">
+                    <span class="detail-label">📧 Email:</span>
+                    <span class="detail-value">${order.emailComprador}</span>
+                </div>
+                ` : ''}
+                
+                ${order.telefonoComprador ? `
+                <div class="detail-row">
+                    <span class="detail-label">📱 Teléfono:</span>
+                    <span class="detail-value">${order.telefonoComprador}</span>
+                </div>
+                ` : ''}
+                
                 <div class="detail-row">
                     <span class="detail-label">Medio de Pago:</span>
                     <span class="detail-value">${order.paymentMethod}</span>
@@ -399,14 +589,14 @@ function renderOrders() {
                                 <strong>Color de anillado:</strong> ${p.color}<br>
                                 ${p.coverText ? `<strong>Texto de tapa:</strong> ${p.coverText}<br>` : ''}
                                 ${p.coverImage ? `<img src="${p.coverImage}" class="cover-image"><br>` : ''}
-                                <strong>Precio:</strong> ${p.price.toFixed(2)}
+                                <strong>Precio:</strong> $${p.price.toFixed(2)}
                             </div>
                         `).join('')}
                     </div>
                 </div>
                 
                 <div class="price-total">
-                    Total: ${order.totalPrice.toFixed(2)}
+                    Total: $${order.totalPrice.toFixed(2)}
                 </div>
             </div>
         </div>
