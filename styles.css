@@ -500,6 +500,11 @@ body {
     color: #d63031;
 }
 
+.status-deposit {
+    background: #81ecec; 
+    color: #0984e3;     
+}
+
 .status-paid {
     background: #55efc4;
     color: #00b894;

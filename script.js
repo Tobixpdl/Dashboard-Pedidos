@@ -548,9 +548,13 @@ function renderOrders() {
                 <div class="detail-row">
                     <span class="detail-label">Estado del Pago:</span>
                     <span class="detail-value">
-                        <span class="status-badge ${order.paymentStatus === 'Pagado' ? 'status-paid' : 'status-pending'}">
+                        <span class="status-badge ${
+                            order.paymentStatus === 'Pagado' ? 'status-paid' :
+                            order.paymentStatus === 'Senado' ? 'status-deposit' :
+                            'status-pending'
+                        }">
                             ${order.paymentStatus}
-                        </span>
+                        </span>                    
                     </span>
                 </div>
                 
