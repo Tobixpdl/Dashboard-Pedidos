@@ -324,140 +324,133 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
         }
     });
 
-    const products = [];
+    // 🔧 PROCESAR PRODUCTOS CON PROMISE.ALL (SOLUCIÓN)
     const productItems = document.querySelectorAll('.product-item');
-    let allImagesLoaded = 0;
-    const totalImages = document.querySelectorAll('.product-cover').length;
-    
-    const processOrder = async () => {
-        if (allImagesLoaded === totalImages) {
-            const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
-            const { collection, addDoc, updateDoc, doc } = window.firestoreLib;
+    const productPromises = Array.from(productItems).map(item => {
+        return new Promise((resolve) => {
+            const name = item.querySelector('.product-name').value;
+            const description = item.querySelector('.product-description').value;
+            const color = item.querySelector('.product-color').value;
+            const coverInput = item.querySelector('.product-cover');
+            const existingCoverImage = item.querySelector('.existing-cover-image').value;
+            const coverText = item.querySelector('.product-cover-text').value;
+            const price = parseFloat(item.querySelector('.product-price').value);
 
-            try {
-                if (editingOrderId) {
-                    // EDITAR PEDIDO EXISTENTE
-                    const oldOrder = orders.find(o => o.id === editingOrderId);
-                    const oldStatus = oldOrder?.orderStatus;
-                    
-                    const orderRef = doc(window.db, 'orders', editingOrderId);
-                    await updateDoc(orderRef, {
-                        customerName,
-                        emailComprador: customerEmail,
-                        telefonoComprador: customerPhone,
-                        products,
-                        paymentMethod,
-                        paymentStatus,
-                        orderStatus,
-                        totalPrice,
-                        date: orderDate,
-                        deliveryDate,
-                        updatedAt: new Date().toISOString()
+            if (coverInput.files && coverInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    resolve({
+                        name,
+                        description,
+                        color,
+                        coverImage: e.target.result,
+                        coverText,
+                        price
                     });
-                    
-                    // 📧 ENVIAR EMAIL SI CAMBIÓ EL ESTADO DEL PEDIDO
-                    if (oldStatus !== orderStatus && customerEmail) {
-                        await sendOrderStatusEmail({
-                            customerName,
-                            emailComprador: customerEmail,
-                            products,
-                            paymentStatus,
-                            orderStatus,
-                            totalPrice,
-                            deliveryDate
-                        }, oldStatus, orderStatus);
-                    }
-                } else {
-                    // CREAR NUEVO PEDIDO
-                    await addDoc(collection(window.db, 'orders'), {
-                        userId: window.currentUser.uid,
-                        month: currentMonth,
-                        customerName,
-                        emailComprador: customerEmail,
-                        telefonoComprador: customerPhone,
-                        products,
-                        paymentMethod,
-                        paymentStatus: 'Pendiente',
-                        orderStatus: 'Pendiente',
-                        totalPrice,
-                        date: orderDate,
-                        deliveryDate, 
-                        createdAt: new Date().toISOString()
-                    });
-
-                    // 📧 ENVIAR EMAIL DE NUEVO PEDIDO
-                    if (customerEmail) {
-                        await sendNewOrderEmail({
-                            customerName,
-                            emailComprador: customerEmail,
-                            products,
-                            paymentStatus: 'Pendiente',
-                            orderStatus: 'Pendiente',
-                            totalPrice,
-                            deliveryDate
-                        });
-                    }
-                }
-
-                // ✅ CERRAR LOADING Y MOSTRAR ÉXITO
-                Swal.fire({
-                    title: '¡Listo!',
-                    text: editingOrderId ? 'Pedido actualizado correctamente' : 'Pedido creado correctamente',
-                    icon: 'success',
-                    confirmButtonColor: '#667eea',
-                    timer: 2000
-                });
-
-                closeModal();
-            } catch (error) {
-                // ❌ CERRAR LOADING Y MOSTRAR ERROR
-                Swal.fire({
-                    title: 'Error al guardar',
-                    text: error.message,
-                    icon: 'error',
-                    confirmButtonColor: '#667eea'
-                });
-            }
-        }
-    };
-
-    productItems.forEach(item => {
-        const name = item.querySelector('.product-name').value;
-        const description = item.querySelector('.product-description').value;
-        const color = item.querySelector('.product-color').value;
-        const coverInput = item.querySelector('.product-cover');
-        const existingCoverImage = item.querySelector('.existing-cover-image').value;
-        const coverText = item.querySelector('.product-cover-text').value;
-        const price = parseFloat(item.querySelector('.product-price').value);
-
-        if (coverInput.files && coverInput.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                products.push({
+                };
+                reader.readAsDataURL(coverInput.files[0]);
+            } else {
+                resolve({
                     name,
                     description,
                     color,
-                    coverImage: e.target.result,
+                    coverImage: existingCoverImage || null,
                     coverText,
                     price
                 });
-                allImagesLoaded++;
-                processOrder();
-            };
-            reader.readAsDataURL(coverInput.files[0]);
-        } else {
-            products.push({
-                name,
-                description,
-                color,
-                coverImage: existingCoverImage || null,
-                coverText,
-                price
-            });
-            allImagesLoaded++;
-            processOrder();
-        }
+            }
+        });
     });
+
+    try {
+        const products = await Promise.all(productPromises);
+        const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
+        const { collection, addDoc, updateDoc, doc } = window.firestoreLib;
+
+        if (editingOrderId) {
+            // EDITAR PEDIDO EXISTENTE
+            const oldOrder = orders.find(o => o.id === editingOrderId);
+            const oldStatus = oldOrder?.orderStatus;
+            
+            const orderRef = doc(window.db, 'orders', editingOrderId);
+            await updateDoc(orderRef, {
+                customerName,
+                emailComprador: customerEmail,
+                telefonoComprador: customerPhone,
+                products,
+                paymentMethod,
+                paymentStatus,
+                orderStatus,
+                totalPrice,
+                date: orderDate,
+                deliveryDate,
+                updatedAt: new Date().toISOString()
+            });
+            
+            // 📧 ENVIAR EMAIL SI CAMBIÓ EL ESTADO DEL PEDIDO
+            if (oldStatus !== orderStatus && customerEmail) {
+                await sendOrderStatusEmail({
+                    customerName,
+                    emailComprador: customerEmail,
+                    products,
+                    paymentStatus,
+                    orderStatus,
+                    totalPrice,
+                    deliveryDate
+                }, oldStatus, orderStatus);
+            }
+        } else {
+            // CREAR NUEVO PEDIDO
+            await addDoc(collection(window.db, 'orders'), {
+                userId: window.currentUser.uid,
+                month: currentMonth,
+                customerName,
+                emailComprador: customerEmail,
+                telefonoComprador: customerPhone,
+                products,
+                paymentMethod,
+                paymentStatus: 'Pendiente',
+                orderStatus: 'Pendiente',
+                totalPrice,
+                date: orderDate,
+                deliveryDate, 
+                createdAt: new Date().toISOString()
+            });
+
+            // 📧 ENVIAR EMAIL DE NUEVO PEDIDO
+            if (customerEmail) {
+                await sendNewOrderEmail({
+                    customerName,
+                    emailComprador: customerEmail,
+                    products,
+                    paymentStatus: 'Pendiente',
+                    orderStatus: 'Pendiente',
+                    totalPrice,
+                    deliveryDate
+                });
+            }
+        }
+
+        // ✅ CERRAR LOADING Y MOSTRAR ÉXITO
+        Swal.fire({
+            title: '¡Listo!',
+            text: editingOrderId ? 'Pedido actualizado correctamente' : 'Pedido creado correctamente',
+            icon: 'success',
+            confirmButtonColor: '#667eea',
+            timer: 2000
+        });
+
+        closeModal();
+    } catch (error) {
+        // ❌ CERRAR LOADING Y MOSTRAR ERROR
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error al guardar',
+            text: error.message,
+            icon: 'error',
+            confirmButtonColor: '#667eea'
+        });
+    }
 });
 
 async function deleteOrder(orderId) {
