@@ -11,7 +11,7 @@ const months = [
     { id: 'jul-2026', name: 'Julio 2026', visible: true },
     { id: 'ago-2026', name: 'Agosto 2026', visible: true },
     { id: 'sep-2026', name: 'Septiembre 2026', visible: true },
-    { id: 'oct-2026', name: 'Octubre 2026', visible: true }
+    { id: 'oct-2026', name: 'Octubre 2026', visible: false }
 ];
 
 let orders = [];
@@ -507,17 +507,143 @@ function renderOrders() {
         }
     });
 
+    // 🆕 Separar pedidos activos de terminados
+    const activeOrders = monthOrders.filter(o => !(o.paymentStatus === 'Pagado' && o.orderStatus === 'Entregado'));
+    const completedOrders = monthOrders.filter(o => o.paymentStatus === 'Pagado' && o.orderStatus === 'Entregado');
+
     if (monthOrders.length === 0) {
         ordersList.innerHTML = '<div class="no-orders">No hay pedidos para este mes</div>';
         return;
     }
 
-    ordersList.innerHTML = monthOrders.map(order => `
-        <div class="order-card">
-            <div class="order-actions">
-                <button class="edit-btn" onclick="openModal('${order.id}')">✏️ Editar</button>
-                <button class="delete-btn" onclick="deleteOrder('${order.id}')">🗑️ Eliminar</button>
+    let html = '';
+
+    // 🆕 Sección de pedidos activos
+    if (activeOrders.length > 0) {
+        html += `
+            <div class="orders-section">
+                <h2 class="section-title">📦 Pedidos Activos (${activeOrders.length})</h2>
+                <div class="orders-grid">
+                    ${activeOrders.map(order => renderOrderCard(order)).join('')}
+                </div>
             </div>
+        `;
+    }
+
+    // 🆕 Sección de pedidos terminados (colapsable)
+    if (completedOrders.length > 0) {
+        html += `
+            <div class="orders-section completed-section">
+                <button class="section-toggle" onclick="toggleCompletedOrders()">
+                    <span class="toggle-icon" id="completed-icon">▶</span>
+                    <h2 class="section-title">✅ Pedidos Terminados (${completedOrders.length})</h2>
+                </button>
+                <div class="orders-grid collapsed" id="completedOrdersGrid">
+                    ${completedOrders.map(order => renderOrderCard(order)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    if (activeOrders.length === 0 && completedOrders.length === 0) {
+        html = '<div class="no-orders">No hay pedidos para este mes</div>';
+    }
+
+    ordersList.innerHTML = html;
+}
+
+
+function printOrder(orderId) {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    
+    // Guardar posición del scroll
+    const scrollPos = window.scrollY;
+    
+    // Abrir modal en modo lectura
+    const modal = document.getElementById('orderModal');
+    modal.style.display = 'block';
+    modal.classList.add('print-content');
+    
+    // Llenar el formulario con los datos
+    document.getElementById('modalTitle').textContent = 'Detalle del Pedido';
+    document.getElementById('editingOrderId').value = orderId;
+    document.getElementById('customerName').value = order.customerName;
+    document.getElementById('customerEmail').value = order.emailComprador || '';
+    document.getElementById('customerPhone').value = order.telefonoComprador || '';
+    document.getElementById('orderDate').value = order.date;
+    document.getElementById('deliveryDate').value = order.deliveryDate || '';
+    document.getElementById('paymentMethod').value = order.paymentMethod;
+    document.getElementById('paymentStatus').value = order.paymentStatus;
+    document.getElementById('orderStatus').value = order.orderStatus;
+    
+    // Mostrar todos los campos
+    document.getElementById('paymentStatusGroup').style.display = 'block';
+    document.getElementById('orderStatusGroup').style.display = 'block';
+    document.getElementById('emailGroup').style.display = 'block';
+    document.getElementById('phoneGroup').style.display = 'block';
+    
+    // Limpiar y agregar productos
+    document.getElementById('productsContainer').innerHTML = '';
+    productCounter = 0;
+    order.products.forEach(product => {
+        addProduct(product);
+    });
+    updateTotalPrice();
+    
+    // Deshabilitar todos los inputs para modo lectura
+    const allInputs = document.querySelectorAll('#orderModal input, #orderModal select, #orderModal textarea, #orderModal button');
+    allInputs.forEach(input => {
+        input.disabled = true;
+    });
+    
+    // Ocultar elementos que no se deben imprimir
+    document.querySelector('.close-modal').classList.add('no-print');
+    document.getElementById('submitBtn').classList.add('no-print');
+    document.querySelectorAll('.add-product-btn').forEach(btn => btn.classList.add('no-print'));
+    document.querySelectorAll('.remove-product').forEach(btn => btn.classList.add('no-print'));
+    document.querySelectorAll('input[type="file"]').forEach(input => input.parentElement.classList.add('no-print'));
+    
+    // Scroll al inicio antes de imprimir
+    window.scrollTo(0, 0);
+    
+    // Esperar a que se renderice y luego imprimir
+    setTimeout(() => {
+        window.print();
+        
+        // Restaurar después de imprimir/cancelar
+        const afterPrint = () => {
+            closeModal();
+            modal.classList.remove('print-content');
+            document.querySelector('.close-modal').classList.remove('no-print');
+            document.getElementById('submitBtn').classList.remove('no-print');
+            window.scrollTo(0, scrollPos);
+            
+            // Remover el listener
+            window.removeEventListener('afterprint', afterPrint);
+        };
+        
+        // Detectar cuando se cierra el diálogo de impresión
+        window.addEventListener('afterprint', afterPrint);
+        
+        // Fallback por si no se detecta el evento (algunos navegadores)
+        setTimeout(() => {
+            if (modal.style.display === 'block') {
+                afterPrint();
+            }
+        }, 1000);
+    }, 300);
+}
+
+// 🆕 Función auxiliar para renderizar una tarjeta de pedido
+function renderOrderCard(order) {
+    return `
+        <div class="order-card">
+        <div class="order-actions">
+        <button class="edit-btn" onclick="openModal('${order.id}')">✏️ Editar</button>
+        <button class="delete-btn" onclick="deleteOrder('${order.id}')">🗑️ Eliminar</button>
+        <button class="print-btn" onclick="printOrder('${order.id}')">🖨️ Imprimir</button>
+    </div>
             
             <div class="order-header">
                 <h3>${order.customerName}</h3>
@@ -597,8 +723,21 @@ function renderOrders() {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+}
 
+// 🆕 Función para toggle de pedidos terminados
+function toggleCompletedOrders() {
+    const grid = document.getElementById('completedOrdersGrid');
+    const icon = document.getElementById('completed-icon');
+    
+    if (grid.classList.contains('collapsed')) {
+        grid.classList.remove('collapsed');
+        icon.textContent = '▼';
+    } else {
+        grid.classList.add('collapsed');
+        icon.textContent = '▶';
+    }
 }
 
 function toggleProducts(orderId) {
