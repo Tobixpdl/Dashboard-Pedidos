@@ -206,10 +206,58 @@
     </script>
 
      <!-- EmailJS -->
+     <!-- EmailJS -->
      <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
      <script>
          emailjs.init('TPkXo4sV9eELRdA9U');
      </script>
+
+    <!-- Print Invoice Template -->
+    <div id="printInvoice" class="print-invoice hidden">
+        <div class="invoice-content">
+            <div class="invoice-header">
+                <h1>PEDIDO</h1>
+            </div>
+            
+            <div class="invoice-info">
+                <div class="info-row">
+                    <span class="label">Nombre:</span>
+                    <span class="value" id="printCustomerName"></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Email:</span>
+                    <span class="value" id="printCustomerEmail"></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Teléfono:</span>
+                    <span class="value" id="printCustomerPhone"></span>
+                </div>
+                <div class="info-row">
+                    <span class="label">Fecha de Pedido:</span>
+                    <span class="value" id="printOrderDate"></span>
+                </div>
+                <div class="info-row" id="deliveryDateRow" style="display: none;">
+                    <span class="label">Fecha Estimada:</span>
+                    <span class="value" id="printDeliveryDate"></span>
+                </div>
+            </div>
+
+            <div class="invoice-divider"></div>
+
+            <div class="products-section">
+                <h2>PRODUCTOS</h2>
+                <div id="printProductsList"></div>
+            </div>
+
+            <div class="invoice-divider"></div>
+
+            <div class="invoice-total">
+                <span>TOTAL:</span>
+                <span id="printTotal"></span>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>

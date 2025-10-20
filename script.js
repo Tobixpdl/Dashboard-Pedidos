@@ -557,82 +557,86 @@ function printOrder(orderId) {
     const order = orders.find(o => o.id === orderId);
     if (!order) return;
     
-    // Guardar posición del scroll
-    const scrollPos = window.scrollY;
+    const printInvoice = document.getElementById('printInvoice');
     
-    // Abrir modal en modo lectura
-    const modal = document.getElementById('orderModal');
-    modal.style.display = 'block';
-    modal.classList.add('print-content');
+    // Información del cliente
+    document.getElementById('printCustomerName').textContent = order.customerName;
+    document.getElementById('printCustomerEmail').textContent = order.emailComprador || 'No especificado';
+    document.getElementById('printCustomerPhone').textContent = order.telefonoComprador || 'No especificado';
     
-    // Llenar el formulario con los datos
-    document.getElementById('modalTitle').textContent = 'Detalle del Pedido';
-    document.getElementById('editingOrderId').value = orderId;
-    document.getElementById('customerName').value = order.customerName;
-    document.getElementById('customerEmail').value = order.emailComprador || '';
-    document.getElementById('customerPhone').value = order.telefonoComprador || '';
-    document.getElementById('orderDate').value = order.date;
-    document.getElementById('deliveryDate').value = order.deliveryDate || '';
-    document.getElementById('paymentMethod').value = order.paymentMethod;
-    document.getElementById('paymentStatus').value = order.paymentStatus;
-    document.getElementById('orderStatus').value = order.orderStatus;
+    // Fecha del pedido
+    document.getElementById('printOrderDate').textContent = new Date(order.date).toLocaleDateString('es-AR');
     
-    // Mostrar todos los campos
-    document.getElementById('paymentStatusGroup').style.display = 'block';
-    document.getElementById('orderStatusGroup').style.display = 'block';
-    document.getElementById('emailGroup').style.display = 'block';
-    document.getElementById('phoneGroup').style.display = 'block';
+    // Fecha estimada (solo si existe y es posterior a la fecha de pedido)
+    const deliveryDateRow = document.getElementById('deliveryDateRow');
+    if (order.deliveryDate && order.deliveryDate > order.date) {
+        document.getElementById('printDeliveryDate').textContent = new Date(order.deliveryDate).toLocaleDateString('es-AR');
+        deliveryDateRow.style.display = 'flex';
+    } else {
+        deliveryDateRow.style.display = 'none';
+    }
     
-    // Limpiar y agregar productos
-    document.getElementById('productsContainer').innerHTML = '';
-    productCounter = 0;
-    order.products.forEach(product => {
-        addProduct(product);
-    });
-    updateTotalPrice();
+    // Lista de productos
+    const productsList = document.getElementById('printProductsList');
+    productsList.innerHTML = order.products.map((p, i) => {
+        let productHTML = `
+            <div class="product-item">
+                <div class="product-header">
+                    <span class="product-number">${i + 1}.</span>
+                    <span class="product-name">${p.name}</span>
+                </div>
+        `;
+        
+        // Descripción (si existe)
+        if (p.description && p.description.trim() !== '') {
+            productHTML += `<div class="product-desc">${p.description}</div>`;
+        }
+        
+        // Color de anillado (solo si existe y no es vacío o "-")
+        if (p.color && p.color.trim() !== '' && p.color.trim() !== '-') {
+            productHTML += `<div class="product-detail">Color: ${p.color}</div>`;
+        }
+        
+        // Texto de tapa (si existe)
+        if (p.coverText && p.coverText.trim() !== '') {
+            productHTML += `<div class="product-detail">Texto: ${p.coverText}</div>`;
+        }
+        
+        productHTML += `
+                <div class="product-price">$${p.price.toFixed(2)}</div>
+            </div>
+        `;
+        
+        return productHTML;
+    }).join('');
     
-    // Deshabilitar todos los inputs para modo lectura
-    const allInputs = document.querySelectorAll('#orderModal input, #orderModal select, #orderModal textarea, #orderModal button');
-    allInputs.forEach(input => {
-        input.disabled = true;
-    });
+    // Total
+    document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
     
-    // Ocultar elementos que no se deben imprimir
-    document.querySelector('.close-modal').classList.add('no-print');
-    document.getElementById('submitBtn').classList.add('no-print');
-    document.querySelectorAll('.add-product-btn').forEach(btn => btn.classList.add('no-print'));
-    document.querySelectorAll('.remove-product').forEach(btn => btn.classList.add('no-print'));
-    document.querySelectorAll('input[type="file"]').forEach(input => input.parentElement.classList.add('no-print'));
+    // Mostrar factura y ocultar el resto
+    printInvoice.classList.remove('hidden');
+    document.getElementById('mainApp').classList.add('print-hide');
     
-    // Scroll al inicio antes de imprimir
-    window.scrollTo(0, 0);
-    
-    // Esperar a que se renderice y luego imprimir
+    // Imprimir
     setTimeout(() => {
         window.print();
         
-        // Restaurar después de imprimir/cancelar
+        // Restaurar después de imprimir
         const afterPrint = () => {
-            closeModal();
-            modal.classList.remove('print-content');
-            document.querySelector('.close-modal').classList.remove('no-print');
-            document.getElementById('submitBtn').classList.remove('no-print');
-            window.scrollTo(0, scrollPos);
-            
-            // Remover el listener
+            printInvoice.classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('print-hide');
             window.removeEventListener('afterprint', afterPrint);
         };
         
-        // Detectar cuando se cierra el diálogo de impresión
         window.addEventListener('afterprint', afterPrint);
         
-        // Fallback por si no se detecta el evento (algunos navegadores)
+        // Fallback
         setTimeout(() => {
-            if (modal.style.display === 'block') {
+            if (!printInvoice.classList.contains('hidden')) {
                 afterPrint();
             }
         }, 1000);
-    }, 300);
+    }, 100);
 }
 
 // 🆕 Función auxiliar para renderizar una tarjeta de pedido

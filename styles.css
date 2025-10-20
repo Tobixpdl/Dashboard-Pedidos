@@ -572,6 +572,127 @@ body {
     display: none;
 }
 
+.print-invoice {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: white;
+    z-index: 9999;
+    padding: 40px;
+    overflow: auto;
+}
+
+.print-invoice.hidden {
+    display: none;
+}
+
+.invoice-content {
+    max-width: 600px;
+    margin: 0 auto;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+}
+
+.invoice-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.invoice-header h1 {
+    font-size: 24px;
+    font-weight: bold;
+    margin: 0;
+    letter-spacing: 2px;
+}
+
+.invoice-info {
+    margin-bottom: 15px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+}
+
+.info-row .label {
+    font-weight: bold;
+}
+
+.info-row .value {
+    text-align: right;
+}
+
+.invoice-divider {
+    border-top: 2px dashed #000;
+    margin: 15px 0;
+}
+
+.products-section h2 {
+    font-size: 16px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.product-item {
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px dotted #ccc;
+}
+
+.product-item:last-child {
+    border-bottom: none;
+}
+    
+.product-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+
+.product-number {
+    font-weight: bold;
+}
+
+.product-name {
+    font-weight: bold;
+    flex: 1;
+}
+
+.product-desc {
+    margin-left: 20px;
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 3px;
+}
+
+.product-detail {
+    margin-left: 20px;
+    font-size: 13px;
+    margin-bottom: 2px;
+}
+
+.product-price {
+    text-align: right;
+    font-weight: bold;
+    margin-top: 5px;
+}
+
+.invoice-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 18px;
+    font-weight: bold;
+    padding: 10px 0;
+}
+
+.print-hide {
+    display: none !important;
+}
+
 .products-collapsible {
     margin-top: 10px;
 }
@@ -677,116 +798,48 @@ body {
 }
 
 @media print {
-    /* Ocultar todo excepto el contenido a imprimir */
+    /* Ocultar todo excepto la factura */
     body * {
         visibility: hidden;
     }
     
-    .print-content, .print-content * {
+    .print-invoice,
+    .print-invoice * {
         visibility: visible;
     }
     
-    /* Posicionar el modal en la parte superior */
-    .print-content {
-        position: fixed !important;
-        left: 0 !important;
-        top: 0 !important;
-        width: 100% !important;
-        height: auto !important;
-        overflow: visible !important;
-        background: white !important;
-        transform: scale(0.75) !important;
-        transform-origin: top left !important;
+    .print-invoice {
+        position: fixed;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto;
+        padding: 0;
+        margin: 0;
+        background: white;
     }
     
-    /* Ajustar el contenido del modal */
-    .print-content .modal-content {
-        position: relative !important;
-        margin: 0 !important;
-        padding: 15px !important;
-        box-shadow: none !important;
-        max-width: 133% !important;
-        width: 133% !important;
-        max-height: none !important;
+    .invoice-content {
+        max-width: 100%;
+        padding: 20px;
+    }
+    
+    .invoice-section {
+        page-break-inside: avoid;
+        margin-bottom: 20px;
+    }
+    
+    .invoice-product {
         page-break-inside: avoid;
     }
     
-    /* Ocultar elementos que no se deben imprimir */
-    .no-print {
-        display: none !important;
-        visibility: hidden !important;
-    }
-    
-    /* Ajustar productos para que no se corten */
-    .product-item {
-        page-break-inside: avoid;
-        margin-bottom: 8px !important;
-        padding: 12px !important;
-    }
-    
-    .products-container {
-        page-break-inside: auto;
-        padding: 12px !important;
-        margin-bottom: 15px !important;
-    }
-    
-    /* Ajustar formulario */
-    .form-group {
-        page-break-inside: avoid;
-        margin-bottom: 8px !important;
-    }
-    
-    .form-group label {
-        font-size: 13px !important;
-    }
-    
-    .form-group input,
-    .form-group select,
-    .form-group textarea {
-        font-size: 13px !important;
-        padding: 8px !important;
-    }
-    
-    /* Asegurar que el título quede en la primera página */
-    #modalTitle {
+    .invoice-header {
         page-break-after: avoid;
-        font-size: 24px !important;
-        margin-bottom: 15px !important;
     }
     
-    /* Reducir márgenes de página */
     @page {
-        margin: 0.5cm;
+        margin: 1cm;
         size: A4 portrait;
-    }
-    
-    /* Ajustar calculadora de total */
-    .total-calculator {
-        page-break-inside: avoid;
-        margin-top: 10px !important;
-        margin-bottom: 15px !important;
-        padding: 12px !important;
-    }
-    
-    .total-calculator h3 {
-        font-size: 16px !important;
-        margin-bottom: 5px !important;
-    }
-    
-    .total-calculator .price {
-        font-size: 28px !important;
-    }
-    
-    /* Ajustar inputs para impresión */
-    input, select, textarea {
-        border: 1px solid #ddd !important;
-        background: white !important;
-    }
-    
-    /* Ajustar preview de imágenes */
-    .image-preview {
-        max-width: 120px !important;
-        max-height: 120px !important;
     }
 }
 
