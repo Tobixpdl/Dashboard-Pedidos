@@ -793,14 +793,10 @@ async function downloadSelectedPDF() {
         // Cerrar loading
         Swal.close();
 
-        // Generar nombre de archivo
-        const fileName = `Pedidos_${new Date().toISOString().split('T')[0]}.pdf`;
-        
-        // Abrir en nueva pestaña Y descargar
-        const pdfBlob = pdf.output('blob');
-        const url = URL.createObjectURL(pdfBlob);
-        window.open(url, '_blank');
-        pdf.save(fileName);
+       // Solo abrir en nueva pestaña (sin descargar automáticamente)
+       const pdfBlob = pdf.output('blob');
+       const url = URL.createObjectURL(pdfBlob);
+       window.open(url, '_blank');
 
         // Desmarcar checkboxes
         checkboxes.forEach(cb => cb.checked = false);
