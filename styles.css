@@ -797,6 +797,7 @@ body {
     background: #27ae60;
 }
 
+
 @media print {
     /* Ocultar todo excepto la factura */
     body * {
@@ -841,6 +842,41 @@ body {
         margin: 1cm;
         size: A4 portrait;
     }
+}
+
+
+/* Checkbox para selección de pedidos */
+.order-checkbox {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    accent-color: #667eea;
+}
+
+.download-pdf-btn {
+    background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.download-pdf-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+}
+
+.download-pdf-btn:disabled {
+    background: #95a5a6;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* Responsive */
@@ -1083,5 +1119,18 @@ body {
     }
     .controls-row{
         margin-bottom: 10px;
+    }
+
+    .download-pdf-btn {
+        width: 100%;
+        font-size: small;
+        padding: 12px 20px;
+    }
+    
+    .order-checkbox {
+        width: 20px;
+        height: 20px;
+        top: 15px;
+        left: 15px;
     }
 }

@@ -47,6 +47,9 @@
                         <option value="delivery-asc">Fecha Estimada (Próxima → Lejana)</option>
                         <option value="delivery-desc">Fecha Estimada (Lejana → Próxima)</option>
                     </select>
+                    <button class="download-pdf-btn" onclick="downloadSelectedPDF()" id="downloadPdfBtn">
+                        📥 Descargar PDF (<span id="selectedCount">0</span>)
+                    </button>
                 </div>
                 <div class="orders-list" id="ordersList"></div>
             </div>
@@ -259,6 +262,8 @@
     </div>
 
     <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 </html>

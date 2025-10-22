@@ -559,59 +559,8 @@ function printOrder(orderId) {
     
     const printInvoice = document.getElementById('printInvoice');
     
-    // Información del cliente
-    document.getElementById('printCustomerName').textContent = order.customerName;
-    document.getElementById('printCustomerEmail').textContent = order.emailComprador || 'No especificado';
-    document.getElementById('printCustomerPhone').textContent = order.telefonoComprador || 'No especificado';
-    
-    // Fecha del pedido
-    document.getElementById('printOrderDate').textContent = new Date(order.date).toLocaleDateString('es-AR');
-    
-    // Fecha estimada (solo si existe y es posterior a la fecha de pedido)
-    const deliveryDateRow = document.getElementById('deliveryDateRow');
-    if (order.deliveryDate && order.deliveryDate > order.date) {
-        document.getElementById('printDeliveryDate').textContent = new Date(order.deliveryDate).toLocaleDateString('es-AR');
-        deliveryDateRow.style.display = 'flex';
-    } else {
-        deliveryDateRow.style.display = 'none';
-    }
-    
-    // Lista de productos
-    const productsList = document.getElementById('printProductsList');
-    productsList.innerHTML = order.products.map((p, i) => {
-        let productHTML = `
-            <div class="product-item">
-                <div class="product-header">
-                    <span class="product-number">${i + 1}.</span>
-                    <span class="product-name">${p.name}</span>
-                </div>
-        `;
-        
-        // Descripción (si existe)
-        if (p.description && p.description.trim() !== '') {
-            productHTML += `<div class="product-desc">${p.description}</div>`;
-        }
-        
-        // Color de anillado (solo si existe y no es vacío o "-")
-        if (p.color && p.color.trim() !== '' && p.color.trim() !== '-') {
-            productHTML += `<div class="product-detail">Color: ${p.color}</div>`;
-        }
-        
-        // Texto de tapa (si existe)
-        if (p.coverText && p.coverText.trim() !== '') {
-            productHTML += `<div class="product-detail">Texto: ${p.coverText}</div>`;
-        }
-        
-        productHTML += `
-                <div class="product-price">$${p.price.toFixed(2)}</div>
-            </div>
-        `;
-        
-        return productHTML;
-    }).join('');
-    
-    // Total
-    document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
+    // Usar la función auxiliar para llenar el template
+    fillPrintTemplate(order);
     
     // Mostrar factura y ocultar el resto
     printInvoice.classList.remove('hidden');
@@ -643,6 +592,7 @@ function printOrder(orderId) {
 function renderOrderCard(order) {
     return `
         <div class="order-card">
+        <input type="checkbox" class="order-checkbox" data-order-id="${order.id}" onchange="updateSelectedCount()">
         <div class="order-actions">
         <button class="edit-btn" onclick="openModal('${order.id}')">✏️ Editar</button>
         <button class="delete-btn" onclick="deleteOrder('${order.id}')">🗑️ Eliminar</button>
@@ -755,4 +705,179 @@ function toggleProducts(orderId) {
         productList.classList.add('collapsed');
         icon.textContent = '▶';
     }
+}
+
+// Función para actualizar contador de seleccionados
+function updateSelectedCount() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    const count = checkboxes.length;
+    document.getElementById('selectedCount').textContent = count;
+    document.getElementById('downloadPdfBtn').disabled = count === 0;
+}
+
+// Función para generar PDF de múltiples pedidos
+async function downloadSelectedPDF() {
+    const checkboxes = document.querySelectorAll('.order-checkbox:checked');
+    
+    if (checkboxes.length === 0) {
+        Swal.fire({
+            title: 'Sin selección',
+            text: 'Por favor selecciona al menos un pedido',
+            icon: 'warning',
+            confirmButtonColor: '#667eea'
+        });
+        return;
+    }
+
+    // Mostrar loading
+    Swal.fire({
+        title: 'Generando PDF...',
+        html: `Procesando ${checkboxes.length} pedido(s)...`,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        let isFirstPage = true;
+
+        for (const checkbox of checkboxes) {
+            const orderId = checkbox.dataset.orderId;
+            const order = orders.find(o => o.id === orderId);
+            
+            if (!order) continue;
+
+            // Si no es la primera página, agregar nueva página
+            if (!isFirstPage) {
+                pdf.addPage();
+            }
+            isFirstPage = false;
+
+            // Usar el mismo template de impresión
+            fillPrintTemplate(order);
+            
+            // Obtener el elemento de impresión
+            const printElement = document.getElementById('printInvoice');
+            printElement.classList.remove('hidden');
+
+            // Esperar a que las imágenes se carguen
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Convertir a canvas
+            const canvas = await html2canvas(printElement, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff',
+                width: 600,
+                windowWidth: 600
+            });
+
+            // Ocultar el template
+            printElement.classList.add('hidden');
+
+            // Calcular dimensiones para A4
+            const imgWidth = 210; // A4 width in mm
+            const pageHeight = 297; // A4 height in mm
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            // Agregar imagen al PDF
+            const imgData = canvas.toDataURL('image/png');
+            pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+        }
+
+        // Cerrar loading
+        Swal.close();
+
+        // Generar nombre de archivo
+        const fileName = `Pedidos_${new Date().toISOString().split('T')[0]}.pdf`;
+        
+        // Abrir en nueva pestaña Y descargar
+        const pdfBlob = pdf.output('blob');
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, '_blank');
+        pdf.save(fileName);
+
+        // Desmarcar checkboxes
+        checkboxes.forEach(cb => cb.checked = false);
+        updateSelectedCount();
+
+        Swal.fire({
+            title: '¡PDF Generado!',
+            text: `Se han procesado ${checkboxes.length} pedido(s)`,
+            icon: 'success',
+            confirmButtonColor: '#667eea',
+            timer: 2000
+        });
+
+    } catch (error) {
+        console.error('Error generando PDF:', error);
+        Swal.fire({
+            title: 'Error',
+            text: 'Hubo un problema al generar el PDF: ' + error.message,
+            icon: 'error',
+            confirmButtonColor: '#667eea'
+        });
+    }
+}
+
+// Función auxiliar para llenar el template de impresión (extraída de printOrder)
+function fillPrintTemplate(order) {
+    // Información del cliente
+    document.getElementById('printCustomerName').textContent = order.customerName;
+    document.getElementById('printCustomerEmail').textContent = order.emailComprador || 'No especificado';
+    document.getElementById('printCustomerPhone').textContent = order.telefonoComprador || 'No especificado';
+    
+    // Fecha del pedido
+    document.getElementById('printOrderDate').textContent = new Date(order.date).toLocaleDateString('es-AR');
+    
+    // Fecha estimada (solo si existe y es posterior a la fecha de pedido)
+    const deliveryDateRow = document.getElementById('deliveryDateRow');
+    if (order.deliveryDate && order.deliveryDate > order.date) {
+        document.getElementById('printDeliveryDate').textContent = new Date(order.deliveryDate).toLocaleDateString('es-AR');
+        deliveryDateRow.style.display = 'flex';
+    } else {
+        deliveryDateRow.style.display = 'none';
+    }
+    
+    // Lista de productos
+    const productsList = document.getElementById('printProductsList');
+    productsList.innerHTML = order.products.map((p, i) => {
+        let productHTML = `
+            <div class="product-item">
+                <div class="product-header">
+                    <span class="product-number">${i + 1}.</span>
+                    <span class="product-name">${p.name}</span>
+                </div>
+        `;
+        
+        // Descripción (si existe)
+        if (p.description && p.description.trim() !== '') {
+            productHTML += `<div class="product-desc">${p.description}</div>`;
+        }
+        
+        // Color de anillado (solo si existe y no es vacío o "-")
+        if (p.color && p.color.trim() !== '' && p.color.trim() !== '-') {
+            productHTML += `<div class="product-detail">Color: ${p.color}</div>`;
+        }
+        
+        // Texto de tapa (si existe)
+        if (p.coverText && p.coverText.trim() !== '') {
+            productHTML += `<div class="product-detail">Texto: ${p.coverText}</div>`;
+        }
+        
+        productHTML += `
+                <div class="product-price">$${p.price.toFixed(2)}</div>
+            </div>
+        `;
+        
+        return productHTML;
+    }).join('');
+    
+    // Total
+    document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
 }
