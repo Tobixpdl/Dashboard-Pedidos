@@ -20,6 +20,44 @@ let productCounter = 0;
 let currentSortOption = 'date-asc';
 let unsubscribe = null;
 
+// Función para generar número de pedido
+// Función para generar número de pedido secuencial
+async function generateOrderNumber() {
+    const { collection, query, where, getDocs } = window.firestoreLib;
+    const q = query(
+        collection(window.db, 'orders'),
+        where('userId', '==', window.currentUser.uid)
+    );
+    
+    const snapshot = await getDocs(q);
+    let maxNumber = 0;
+    
+    snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data.orderNumber && typeof data.orderNumber === 'number') {
+            maxNumber = Math.max(maxNumber, data.orderNumber);
+        }
+    });
+    
+    return maxNumber + 1;
+}
+// Función para manejar cambio de producto
+function handleProductChange(selectElement, productId) {
+    const value = selectElement.value;
+    const sheetsGroup = document.getElementById(`sheets-group-${productId}`);
+    const sheetsInput = sheetsGroup.querySelector('.product-sheets');
+    
+    // Mostrar campo de hojas solo para cuadernos
+    if (value === 'Cuaderno anillado tapa dura' || value === 'Cuaderno tapa blanda abrochado') {
+        sheetsGroup.style.display = 'block';
+        sheetsInput.required = true;
+    } else {
+        sheetsGroup.style.display = 'none';
+        sheetsInput.required = false;
+        sheetsInput.value = '';
+    }
+}
+
 // 🔧 Función para enviar email cuando cambia el estado
 async function sendOrderStatusEmail(order, oldStatus, newStatus) {
     if (!order.emailComprador || oldStatus === newStatus) return;
@@ -205,7 +243,25 @@ function addProduct(productData = null) {
         
         <div class="form-group">
             <label>Producto *</label>
-            <input type="text" class="product-name" required placeholder="Ej: Cuaderno A4" value="${productData?.name || ''}">
+            <select class="product-name" required onchange="handleProductChange(this, ${productCounter})">
+                <option value="">Seleccionar producto...</option>
+                <option value="Agenda diaria" ${productData?.name === 'Agenda diaria' ? 'selected' : ''}>📅 Agenda diaria</option>
+                <option value="Agenda 2 días x hoja" ${productData?.name === 'Agenda 2 días x hoja' ? 'selected' : ''}>📅 Agenda 2 días x hoja</option>
+                <option value="Agenda semanal" ${productData?.name === 'Agenda semanal' ? 'selected' : ''}>📅 Agenda semanal</option>
+                <option value="Planner mensual 2026" ${productData?.name === 'Planner mensual 2026' ? 'selected' : ''}>📆 Planner mensual 2026</option>
+                <option value="Planner mensual perpetuo" ${productData?.name === 'Planner mensual perpetuo' ? 'selected' : ''}>📆 Planner mensual perpetuo</option>
+                <option value="Planner semanal perpetuo" ${productData?.name === 'Planner semanal perpetuo' ? 'selected' : ''}>📆 Planner semanal perpetuo</option>
+                <option value="Cuaderno anillado tapa dura" ${productData?.name === 'Cuaderno anillado tapa dura' ? 'selected' : ''}>📓 Cuaderno anillado tapa dura</option>
+                <option value="Cuaderno tapa blanda abrochado" ${productData?.name === 'Cuaderno tapa blanda abrochado' ? 'selected' : ''}>📒 Cuaderno tapa blanda abrochado (hasta 60 hojas)</option>
+                <option value="Agenda docente nivel sec/univ/sup" ${productData?.name === 'Agenda docente nivel sec/univ/sup' ? 'selected' : ''}>👨‍🏫 Agenda docente nivel sec / univ / sup</option>
+                <option value="Agenda docente nivel prim" ${productData?.name === 'Agenda docente nivel prim' ? 'selected' : ''}>👩‍🏫 Agenda docente nivel prim</option>
+                <option value="Agenda docente nivel inicial" ${productData?.name === 'Agenda docente nivel inicial' ? 'selected' : ''}>👶 Agenda docente nivel inicial</option>
+            </select>
+        </div>
+
+        <div class="form-group product-sheets-group" id="sheets-group-${productCounter}" style="display: none;">
+            <label>Cantidad de Hojas *</label>
+            <input type="number" class="product-sheets" min="1" value="${productData?.sheets || ''}" placeholder="Ej: 80">
         </div>
 
         <div class="form-group">
@@ -236,6 +292,14 @@ function addProduct(productData = null) {
         </div>
     `;
     container.appendChild(productDiv);
+    
+    // Mostrar campo de hojas si es necesario
+    if (productData && (productData.name === 'Cuaderno anillado tapa dura' || productData.name === 'Cuaderno tapa blanda abrochado')) {
+        const sheetsGroup = document.getElementById(`sheets-group-${productCounter}`);
+        sheetsGroup.style.display = 'block';
+        sheetsGroup.querySelector('.product-sheets').required = true;
+    }
+    
     updateTotalPrice();
 }
 
@@ -329,6 +393,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
     const productPromises = Array.from(productItems).map(item => {
         return new Promise((resolve) => {
             const name = item.querySelector('.product-name').value;
+            const sheets = item.querySelector('.product-sheets').value || null;
             const description = item.querySelector('.product-description').value;
             const color = item.querySelector('.product-color').value;
             const coverInput = item.querySelector('.product-cover');
@@ -341,7 +406,8 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                 reader.onload = function(e) {
                     resolve({
                         name,
-                        description,
+                        sheets,
+                        description,    
                         color,
                         coverImage: e.target.result,
                         coverText,
@@ -352,6 +418,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             } else {
                 resolve({
                     name,
+                    sheets,
                     description,
                     color,
                     coverImage: existingCoverImage || null,
@@ -401,8 +468,11 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             }
         } else {
             // CREAR NUEVO PEDIDO
+            const orderNumber = await generateOrderNumber();
+            
             await addDoc(collection(window.db, 'orders'), {
                 userId: window.currentUser.uid,
+                orderNumber: orderNumber,
                 month: currentMonth,
                 customerName,
                 emailComprador: customerEmail,
@@ -601,6 +671,7 @@ function renderOrderCard(order) {
             
             <div class="order-header">
                 <h3>${order.customerName}</h3>
+                ${order.orderNumber ? `<span class="order-number">Nº ${order.orderNumber}</span>` : ''}
                 <span class="order-date">${order.date}</span>
                 ${order.deliveryDate ? `<span class="order-date" style="color: #667eea;">📦 Entrega: ${order.deliveryDate}</span>` : ''}
             </div>
@@ -660,8 +731,8 @@ function renderOrderCard(order) {
                     </button>
                     <div class="product-list collapsed" id="products-${order.id}">
                         ${order.products.map((p, i) => `
-                            <div class="product-list-item">
-                                <strong>${p.name}</strong><br>
+                             <div class="product-list-item">
+                                <strong>${p.name}</strong>${p.sheets ? ` (${p.sheets} hojas)` : ''}<br>
                                 ${p.description ? `<strong>Descripción:</strong> ${p.description}<br>` : ''}
                                 <strong>Color de anillado:</strong> ${p.color}<br>
                                 ${p.coverText ? `<strong>Texto de tapa:</strong> ${p.coverText}<br>` : ''}
