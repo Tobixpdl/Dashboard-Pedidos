@@ -256,6 +256,7 @@ function addProduct(productData = null) {
                 <option value="Agenda docente nivel sec/univ/sup" ${productData?.name === 'Agenda docente nivel sec/univ/sup' ? 'selected' : ''}>👨‍🏫 Agenda docente nivel sec / univ / sup</option>
                 <option value="Agenda docente nivel prim" ${productData?.name === 'Agenda docente nivel prim' ? 'selected' : ''}>👩‍🏫 Agenda docente nivel prim</option>
                 <option value="Agenda docente nivel inicial" ${productData?.name === 'Agenda docente nivel inicial' ? 'selected' : ''}>👶 Agenda docente nivel inicial</option>
+                 <option value="Agenda docente nivel inicial" ${productData?.name === 'Stickers Vinilo' ? 'selected' : ''}>👶 Stickers de vinilo</option>
             </select>
         </div>
 
@@ -947,4 +948,5 @@ function fillPrintTemplate(order) {
     
     // Total
     document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
+
 }
