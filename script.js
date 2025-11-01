@@ -252,11 +252,12 @@ function addProduct(productData = null) {
                 <option value="Planner mensual perpetuo" ${productData?.name === 'Planner mensual perpetuo' ? 'selected' : ''}>📆 Planner mensual perpetuo</option>
                 <option value="Planner semanal perpetuo" ${productData?.name === 'Planner semanal perpetuo' ? 'selected' : ''}>📆 Planner semanal perpetuo</option>
                 <option value="Cuaderno anillado tapa dura" ${productData?.name === 'Cuaderno anillado tapa dura' ? 'selected' : ''}>📓 Cuaderno anillado tapa dura</option>
-                <option value="Cuaderno tapa blanda abrochado" ${productData?.name === 'Cuaderno tapa blanda abrochado' ? 'selected' : ''}>📒 Cuaderno tapa blanda abrochado (hasta 60 hojas)</option>
+                <option value="Cuaderno tapa blanda abrochado" ${productData?.name === 'Cuaderno tapa blanda abrochado' ? 'selected' : ''}>📒 Cuaderno tapa blanda abrochado</option>
                 <option value="Agenda docente nivel sec/univ/sup" ${productData?.name === 'Agenda docente nivel sec/univ/sup' ? 'selected' : ''}>👨‍🏫 Agenda docente nivel sec / univ / sup</option>
                 <option value="Agenda docente nivel prim" ${productData?.name === 'Agenda docente nivel prim' ? 'selected' : ''}>👩‍🏫 Agenda docente nivel prim</option>
                 <option value="Agenda docente nivel inicial" ${productData?.name === 'Agenda docente nivel inicial' ? 'selected' : ''}>👶 Agenda docente nivel inicial</option>
-                 <option value="Agenda docente nivel inicial" ${productData?.name === 'Stickers Vinilo' ? 'selected' : ''}>👶 Stickers de vinilo</option>
+                <option value="Agenda docente nivel inicial" ${productData?.name === 'Stickers Vinilo' ? 'selected' : ''}>✨ Stickers de vinilo</option>
+                <option value="Stickers autoadhesivos" ${productData?.name === 'Stickers autoadhesivos' ? 'selected' : ''}>💫 Stickers autoadhesivos</option>
             </select>
         </div>
 
@@ -950,3 +951,4 @@ function fillPrintTemplate(order) {
     document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
 
 }
+
