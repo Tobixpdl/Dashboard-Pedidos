@@ -19,6 +19,8 @@ let currentMonth = null;
 let productCounter = 0;
 let currentSortOption = 'date-asc';
 let unsubscribe = null;
+let customProducts = [];
+let productsUnsubscribe = null;
 
 // Función para generar número de pedido
 // Función para generar número de pedido secuencial
@@ -113,6 +115,7 @@ function init() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('orderDate').value = today;
     loadOrders();
+    loadCustomProducts(); // ← AGREGAR ESTA LÍNEA
 }
 
 function loadOrders() {
@@ -245,19 +248,9 @@ function addProduct(productData = null) {
             <label>Producto *</label>
             <select class="product-name" required onchange="handleProductChange(this, ${productCounter})">
                 <option value="">Seleccionar producto...</option>
-                <option value="Agenda diaria" ${productData?.name === 'Agenda diaria' ? 'selected' : ''}>📅 Agenda diaria</option>
-                <option value="Agenda 2 días x hoja" ${productData?.name === 'Agenda 2 días x hoja' ? 'selected' : ''}>📅 Agenda 2 días x hoja</option>
-                <option value="Agenda semanal" ${productData?.name === 'Agenda semanal' ? 'selected' : ''}>📅 Agenda semanal</option>
-                <option value="Planner mensual 2026" ${productData?.name === 'Planner mensual 2026' ? 'selected' : ''}>📆 Planner mensual 2026</option>
-                <option value="Planner mensual perpetuo" ${productData?.name === 'Planner mensual perpetuo' ? 'selected' : ''}>📆 Planner mensual perpetuo</option>
-                <option value="Planner semanal perpetuo" ${productData?.name === 'Planner semanal perpetuo' ? 'selected' : ''}>📆 Planner semanal perpetuo</option>
-                <option value="Cuaderno anillado tapa dura" ${productData?.name === 'Cuaderno anillado tapa dura' ? 'selected' : ''}>📓 Cuaderno anillado tapa dura</option>
-                <option value="Cuaderno tapa blanda abrochado" ${productData?.name === 'Cuaderno tapa blanda abrochado' ? 'selected' : ''}>📒 Cuaderno tapa blanda abrochado</option>
-                <option value="Agenda docente nivel sec/univ/sup" ${productData?.name === 'Agenda docente nivel sec/univ/sup' ? 'selected' : ''}>👨‍🏫 Agenda docente nivel sec / univ / sup</option>
-                <option value="Agenda docente nivel prim" ${productData?.name === 'Agenda docente nivel prim' ? 'selected' : ''}>👩‍🏫 Agenda docente nivel prim</option>
-                <option value="Agenda docente nivel inicial" ${productData?.name === 'Agenda docente nivel inicial' ? 'selected' : ''}>👶 Agenda docente nivel inicial</option>
-                <option value="Agenda docente nivel inicial" ${productData?.name === 'Stickers Vinilo' ? 'selected' : ''}>✨ Stickers de vinilo</option>
-                <option value="Stickers autoadhesivos" ${productData?.name === 'Stickers autoadhesivos' ? 'selected' : ''}>💫 Stickers autoadhesivos</option>
+                ${getAllProducts().map(p => `
+                    <option value="${p.value}" ${productData?.name === p.value ? 'selected' : ''}>${p.label}</option>
+                `).join('')}
             </select>
         </div>
 
@@ -949,6 +942,154 @@ function fillPrintTemplate(order) {
     
     // Total
     document.getElementById('printTotal').textContent = '$' + order.totalPrice.toFixed(2);
-
 }
 
+// Cargar productos personalizados
+function loadCustomProducts() {
+    if (productsUnsubscribe) productsUnsubscribe();
+    
+    const { collection, query, where, onSnapshot } = window.firestoreLib;
+    const q = query(
+        collection(window.db, 'customProducts'),
+        where('userId', '==', window.currentUser.uid)
+    );
+
+    productsUnsubscribe = onSnapshot(q, (snapshot) => {
+        customProducts = [];
+        snapshot.forEach((doc) => {
+            customProducts.push({ id: doc.id, ...doc.data() });
+        });
+    });
+}
+
+// Obtener todos los productos (default + custom)
+function getAllProducts() {
+    const defaultProducts = [
+        { value: "Agenda diaria", label: "📅 Agenda diaria" },
+        { value: "Agenda 2 días x hoja", label: "📅 Agenda 2 días x hoja" },
+        { value: "Agenda semanal", label: "📅 Agenda semanal" },
+        { value: "Planner mensual 2026", label: "📆 Planner mensual 2026" },
+        { value: "Planner mensual perpetuo", label: "📆 Planner mensual perpetuo" },
+        { value: "Planner semanal perpetuo", label: "📆 Planner semanal perpetuo" },
+        { value: "Cuaderno anillado tapa dura", label: "📕 Cuaderno anillado tapa dura" },
+        { value: "Cuaderno tapa blanda abrochado", label: "📙 Cuaderno tapa blanda abrochado (hasta 60 hojas)" },
+        { value: "Agenda docente nivel sec/univ/sup", label: "👨‍🏫 Agenda docente nivel sec / univ / sup" },
+        { value: "Agenda docente nivel prim", label: "👩‍🏫 Agenda docente nivel prim" },
+        { value: "Agenda docente nivel inicial", label: "👶 Agenda docente nivel inicial" }
+    ];
+    
+    const custom = customProducts.map(p => ({
+        value: p.name,
+        label: `${p.emoji || '📦'} ${p.name}`
+    }));
+    
+    return [...defaultProducts, ...custom];
+}
+
+// Abrir modal de gestión de productos
+function openProductsManager() {
+    document.getElementById('productsModal').style.display = 'block';
+    renderCustomProducts();
+}
+
+// Cerrar modal de gestión de productos
+function closeProductsManager() {
+    document.getElementById('productsModal').style.display = 'none';
+    document.getElementById('addProductForm').reset();
+}
+
+// Renderizar lista de productos personalizados
+function renderCustomProducts() {
+    const container = document.getElementById('customProductsList');
+    
+    if (customProducts.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 20px;">No hay productos personalizados aún</p>';
+        return;
+    }
+    
+    container.innerHTML = customProducts.map(product => `
+        <div class="custom-product-item">
+            <span class="custom-product-name">${product.emoji || '📦'} ${product.name}</span>
+            <button class="delete-custom-product" onclick="deleteCustomProduct('${product.id}')">🗑️ Eliminar</button>
+        </div>
+    `).join('');
+}
+
+// Agregar producto personalizado
+document.getElementById('addProductForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('newProductName').value.trim();
+    const emoji = document.getElementById('newProductEmoji').value.trim();
+    
+    if (!name) return;
+    
+    try {
+        const { collection, addDoc } = window.firestoreLib;
+        
+        await addDoc(collection(window.db, 'customProducts'), {
+            userId: window.currentUser.uid,
+            name: name,
+            emoji: emoji || '📦',
+            createdAt: new Date().toISOString()
+        });
+        
+        Swal.fire({
+            title: '¡Producto agregado!',
+            text: `"${name}" se agregó correctamente`,
+            icon: 'success',
+            confirmButtonColor: '#667eea',
+            timer: 2000
+        });
+        
+        document.getElementById('addProductForm').reset();
+        renderCustomProducts();
+        
+    } catch (error) {
+        console.error('Error:', error);
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudo agregar el producto',
+            icon: 'error',
+            confirmButtonColor: '#667eea'
+        });
+    }
+});
+
+// Eliminar producto personalizado
+async function deleteCustomProduct(productId) {
+    const result = await Swal.fire({
+        title: '¿Eliminar este producto?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#667eea',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const { deleteDoc, doc } = window.firestoreLib;
+            await deleteDoc(doc(window.db, 'customProducts', productId));
+            
+            Swal.fire({
+                title: '¡Eliminado!',
+                text: 'El producto ha sido eliminado',
+                icon: 'success',
+                confirmButtonColor: '#667eea',
+                timer: 2000
+            });
+            
+            renderCustomProducts();
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudo eliminar el producto',
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
+        }
+    }
+}

@@ -41,6 +41,7 @@
             <div class="content-area">
                 <div class="controls-row">
                     <button class="add-order-btn" onclick="openModal()">+ Agregar Pedido</button>
+                    <button class="manage-products-btn" onclick="openProductsManager()">⚙️ Gestionar Productos</button>
                     <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
                         <option value="date-asc">Fecha de Pedido (Antigua → Nueva)</option>
                         <option value="date-desc">Fecha de Pedido (Nueva → Antigua)</option>
@@ -133,6 +134,27 @@
                     </div>
 
                     <button type="submit" class="submit-btn" id="submitBtn">Guardar Pedido</button>
+                </form>
+            </div>
+        </div>
+        <div class="modal" id="productsModal">
+            <div class="modal-content">
+                <span class="close-modal" onclick="closeProductsManager()">&times;</span>
+                <h2 style="color: #667eea; margin-bottom: 30px;">Gestionar Productos Personalizados</h2>
+                
+                <div class="custom-products-list" id="customProductsList"></div>
+                
+                <form id="addProductForm" style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+                    <h3 style="color: #667eea; margin-bottom: 20px;">Agregar Nuevo Producto</h3>
+                    <div class="form-group">
+                        <label>Nombre del Producto *</label>
+                        <input type="text" id="newProductName" required placeholder="Ej: Agenda 2027">
+                    </div>
+                    <div class="form-group">
+                        <label>Emoji (opcional)</label>
+                        <input type="text" id="newProductEmoji" maxlength="2" placeholder="📅">
+                    </div>
+                    <button type="submit" class="submit-btn">Agregar Producto</button>
                 </form>
             </div>
         </div>

@@ -1152,3 +1152,62 @@ body {
     border-radius: 8px;
     border-left: 4px solid #ffc107;
 }
+
+.manage-products-btn {
+    background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.manage-products-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+}
+
+.custom-products-list {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.custom-product-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.custom-product-name {
+    font-weight: 600;
+    color: #333;
+}
+
+.delete-custom-product {
+    background: #ff4757;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.delete-custom-product:hover {
+    background: #e84118;
+}
+
+@media (max-width: 768px) {
+    .manage-products-btn {
+        width: 100%;
+        font-size: small;
+    }
+}
