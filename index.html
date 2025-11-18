@@ -41,8 +41,11 @@
             <div class="content-area">
                 <div class="controls-row">
                     <button class="add-order-btn" onclick="openModal()">+ Agregar Pedido</button>
-                    <button class="manage-products-btn" onclick="openProductsManager()">⚙️ Gestionar Productos</button>
-                    <button class="manage-inventory-btn" onclick="openInventoryManager()">📦 Gestionar Inventario</button>                    <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
+                    <div class="div-gestion">
+                        <button class="manage-products-btn" onclick="openProductsManager()">⚙️ Gestionar Productos</button>
+                        <button class="manage-inventory-btn" onclick="openInventoryManager()">📦 Gestionar Inventario</button>                    
+                    </div>
+                        <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
                         <option value="date-asc">Fecha de Pedido (Antigua → Nueva)</option>
                         <option value="date-desc">Fecha de Pedido (Nueva → Antigua)</option>
                         <option value="delivery-asc">Fecha Estimada (Próxima → Lejana)</option>

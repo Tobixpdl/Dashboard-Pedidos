@@ -881,6 +881,10 @@ body {
 
 /* Responsive */
 @media (max-width: 768px) {
+    .header{
+        padding:10px;
+    }
+    
     .header h1 {
         font-size: 1.8em;
     }
@@ -1206,9 +1210,15 @@ body {
 }
 
 @media (max-width: 768px) {
+    .div-gestion{
+        display: flex;
+        gap: 10px;
+    }
+
     .manage-products-btn {
         width: 100%;
         font-size: small;
+        padding: 10px 15px;
     }
 }
 
@@ -1290,6 +1300,11 @@ body {
 }
 
 .material-card.low-stock {
+    border-color: #f3ff47;
+    background: #FFFFF0;
+}
+
+.material-card.no-stock {
     border-color: #ff4757;
     background: #fff5f5;
 }
@@ -1308,8 +1323,8 @@ body {
 }
 
 .low-stock-badge {
-    background: #ff4757;
-    color: white;
+    background: #f3ff47;
+    color: black;
     padding: 3px 8px;
     border-radius: 12px;
     font-size: 11px;
@@ -1533,6 +1548,7 @@ body {
     .manage-inventory-btn {
         width: 100%;
         font-size: small;
+        padding: 10px 15px;
     }
     
     .inventory-tabs {
@@ -1554,7 +1570,7 @@ body {
     }
     
     .materials-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
     }
     
     .recipe-material-item {
@@ -1573,5 +1589,74 @@ body {
     
     #addMaterialForm > div {
         grid-template-columns: 1fr !important;
+    }
+
+    .material-card{
+        padding: 10px;
+    }
+
+    .material-header {
+        font-size: small;
+        margin-bottom: 5px;
+    }
+
+    .material-stock {
+        padding: 0;
+        margin-bottom: 5px;
+    }
+
+    .stock-btn {
+        padding: 4px 6px;
+        font-size: 10px;
+    }
+
+    .low-stock-badge{
+        font-size: 8px;
+        padding: 3px 4px;
+        border-radius: 4px;
+    }
+
+    .recipes-list{
+        grid-template-columns: 1fr 1fr;
+        gap:5px;
+    }
+
+    .recipe-card{
+        padding: 10px;
+        border-radius: 10px;
+    }
+
+    .recipe-header{
+        gap:10px;
+        margin-bottom: 5px;
+            padding-bottom: 5px;
+    }
+
+    .recipe-header h4{
+        font-size: small;
+    }
+
+    .delete-recipe-btn{
+        padding: 4px;
+        font-size: 12px;
+        border-radius: 7px;
+    }
+
+    .recipe-materials{
+        margin-bottom: 10px;
+    }
+
+    .recipe-materials strong{
+        font-size: 12px;
+        margin-bottom: 5px;
+    }
+
+    .recipe-materials li{
+        font-size: 10px;
+    }
+
+    .recipe-stock-info{
+        padding: 5px;
+        font-size: 10px;
     }
 }

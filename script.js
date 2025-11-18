@@ -1230,29 +1230,44 @@ function switchInventoryTab(tab) {
 // Renderizar grid de materiales
 function renderMaterialsGrid() {
     const container = document.getElementById('materialsGrid');
-    
+
     if (inventoryMaterials.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; grid-column: 1/-1;">No hay materiales en el inventario</p>';
         return;
     }
-    
-    container.innerHTML = inventoryMaterials.map(material => `
-        <div class="material-card ${material.stock <= (material.minStock || 10) ? 'low-stock' : ''}">
-            <div class="material-header">
-                <h4>${material.name}</h4>
-                ${material.stock <= (material.minStock || 10) ? '<span class="low-stock-badge">⚠️ Stock Bajo</span>' : ''}
+
+    container.innerHTML = inventoryMaterials.map(material => {
+        const currentStock = Number(material.stock);
+
+        let stockBadge = '';
+        let lowStockClass = '';
+
+        if (currentStock === 0) {
+            stockBadge = '<span class="no-stock-badge">❌ Sin Stock</span>';
+            lowStockClass = 'no-stock'; // Clase para resaltar toda la tarjeta
+        } else if (currentStock < 10) {
+            stockBadge = '<span class="low-stock-badge">⚠️ Stock Bajo</span>';
+            lowStockClass = 'low-stock'; // Clase para resaltar toda la tarjeta
+        }
+
+        return `
+            <div class="material-card ${lowStockClass}">
+                <div class="material-header">
+                    <h4>${material.name}</h4>
+                    ${stockBadge}
+                </div>
+                <div class="material-stock">
+                    <span class="stock-number">${material.stock}</span>
+                    <span class="stock-unit">${material.unit}</span>
+                </div>
+                <div class="material-actions">
+                    <button onclick="adjustStock('${material.id}', 'add')" class="stock-btn add">+ Agregar</button>
+                    <button onclick="adjustStock('${material.id}', 'remove')" class="stock-btn remove">- Quitar</button>
+                    <button onclick="deleteMaterial('${material.id}')" class="stock-btn delete">🗑️</button>
+                </div>
             </div>
-            <div class="material-stock">
-                <span class="stock-number">${material.stock}</span>
-                <span class="stock-unit">${material.unit}</span>
-            </div>
-            <div class="material-actions">
-                <button onclick="adjustStock('${material.id}', 'add')" class="stock-btn add">+ Agregar</button>
-                <button onclick="adjustStock('${material.id}', 'remove')" class="stock-btn remove">- Quitar</button>
-                <button onclick="deleteMaterial('${material.id}')" class="stock-btn delete">🗑️</button>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
 }
 
 // Ajustar stock de material
@@ -1402,7 +1417,7 @@ function renderRecipesList() {
         <div class="recipe-card">
             <div class="recipe-header">
                 <h4>${recipe.emoji || '📦'} ${recipe.name}</h4>
-                <button onclick="deleteRecipe('${recipe.id}')" class="delete-recipe-btn">🗑️ Eliminar</button>
+                <button onclick="deleteRecipe('${recipe.id}')" class="delete-recipe-btn">🗑️</button>
             </div>
             <div class="recipe-materials">
                 <strong>Materiales necesarios:</strong>
