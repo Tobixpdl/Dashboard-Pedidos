@@ -21,6 +21,11 @@ let currentSortOption = 'date-asc';
 let unsubscribe = null;
 let customProducts = [];
 let productsUnsubscribe = null;
+let inventoryMaterials = [];
+let productRecipes = [];
+let materialsUnsubscribe = null;
+let recipesUnsubscribe = null;
+let recipeMaterialCounter = 0;
 
 // Función para generar número de pedido
 // Función para generar número de pedido secuencial
@@ -57,6 +62,18 @@ function handleProductChange(selectElement, productId) {
         sheetsGroup.style.display = 'none';
         sheetsInput.required = false;
         sheetsInput.value = '';
+    }
+        // 🔥 NUEVO: mostrar cantidad de planchas si es sticker
+    const stickerGroup = document.getElementById(`sheets-stickers-${productId}`);
+    const stickerInput = stickerGroup.querySelector('.sheets-stickers-input');
+
+    if (value.toLowerCase().includes("sticker")) {
+        stickerGroup.style.display = "block";
+        stickerInput.required = true;
+    } else {
+        stickerGroup.style.display = "none";
+        stickerInput.required = false;
+        stickerInput.value = "";
     }
 }
 
@@ -115,9 +132,10 @@ function init() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('orderDate').value = today;
     loadOrders();
-    loadCustomProducts(); // ← AGREGAR ESTA LÍNEA
+    loadCustomProducts();
+    loadInventoryMaterials(); 
+    loadProductRecipes();     
 }
-
 function loadOrders() {
     if (unsubscribe) unsubscribe();
     
@@ -259,6 +277,11 @@ function addProduct(productData = null) {
             <input type="number" class="product-sheets" min="1" value="${productData?.sheets || ''}" placeholder="Ej: 80">
         </div>
 
+        <div class="form-group product-sheets-stickers" id="sheets-stickers-${productCounter}" style="display:none;">
+            <label>Cantidad de planchas *</label>
+            <input type="number" class="sheets-stickers-input" min="1" placeholder="Ej: 10">
+        </div>
+
         <div class="form-group">
             <label>Descripción</label>
             <textarea class="product-description" placeholder="Detalles adicionales...">${productData?.description || ''}</textarea>
@@ -395,7 +418,9 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             const existingCoverImage = item.querySelector('.existing-cover-image').value;
             const coverText = item.querySelector('.product-cover-text').value;
             const price = parseFloat(item.querySelector('.product-price').value);
-
+            const stickerSheetsInput = item.querySelector('.sheets-stickers-input');
+            const stickerSheets = stickerSheetsInput && stickerSheetsInput.value ? parseInt(stickerSheetsInput.value) : null;
+           
             if (coverInput.files && coverInput.files[0]) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
@@ -406,7 +431,8 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                         color,
                         coverImage: e.target.result,
                         coverText,
-                        price
+                        price,
+                        stickerSheets
                     });
                 };
                 reader.readAsDataURL(coverInput.files[0]);
@@ -416,6 +442,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
                     sheets,
                     description,
                     color,
+                    stickerSheets,
                     coverImage: existingCoverImage || null,
                     coverText,
                     price
@@ -496,6 +523,9 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             }
         }
 
+        // 📦 DESCONTAR INVENTARIO
+        await deductInventoryForOrder(products);
+
         // ✅ CERRAR LOADING Y MOSTRAR ÉXITO
         Swal.fire({
             title: '¡Listo!',
@@ -521,7 +551,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
 async function deleteOrder(orderId) {
     const result = await Swal.fire({
         title: '¿Eliminar este pedido?',
-        text: 'Esta acción no se puede deshacer',
+        text: 'Esta acción no se puede deshacer y devolverá los materiales al inventario',
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#d33',
@@ -531,12 +561,31 @@ async function deleteOrder(orderId) {
     });
 
     if (result.isConfirmed) {
+        // Mostrar loading
+        Swal.fire({
+            title: 'Eliminando pedido...',
+            text: 'Devolviendo materiales al inventario...',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
         const { deleteDoc, doc } = window.firestoreLib;
         try {
+            // 🔙 Primero devolver materiales al inventario
+            const order = orders.find(o => o.id === orderId);
+            if (order && order.products) {
+                await returnInventoryForOrder(order.products);
+            }
+
+            // 🗑️ Luego eliminar el pedido
             await deleteDoc(doc(window.db, 'orders', orderId));
+            
             Swal.fire({
                 title: '¡Eliminado!',
-                text: 'El pedido ha sido eliminado correctamente',
+                text: 'El pedido ha sido eliminado y los materiales devueltos al inventario',
                 icon: 'success',
                 confirmButtonColor: '#667eea',
                 timer: 2000
@@ -730,6 +779,7 @@ function renderOrderCard(order) {
                                 <strong>${p.name}</strong>${p.sheets ? ` (${p.sheets} hojas)` : ''}<br>
                                 ${p.description ? `<strong>Descripción:</strong> ${p.description}<br>` : ''}
                                 <strong>Color de anillado:</strong> ${p.color}<br>
+                                ${p.stickerSheets ? `<strong>Cant. de planchas:</strong> ${p.stickerSheets}<br>` : ''}
                                 ${p.coverText ? `<strong>Texto de tapa:</strong> ${p.coverText}<br>` : ''}
                                 ${p.coverImage ? `<img src="${p.coverImage}" class="cover-image"><br>` : ''}
                                 <strong>Precio:</strong> $${p.price.toFixed(2)}
@@ -965,25 +1015,33 @@ function loadCustomProducts() {
 // Obtener todos los productos (default + custom)
 function getAllProducts() {
     const defaultProducts = [
-        { value: "Agenda diaria", label: "📅 Agenda diaria" },
-        { value: "Agenda 2 días x hoja", label: "📅 Agenda 2 días x hoja" },
-        { value: "Agenda semanal", label: "📅 Agenda semanal" },
-        { value: "Planner mensual 2026", label: "📆 Planner mensual 2026" },
-        { value: "Planner mensual perpetuo", label: "📆 Planner mensual perpetuo" },
-        { value: "Planner semanal perpetuo", label: "📆 Planner semanal perpetuo" },
-        { value: "Cuaderno anillado tapa dura", label: "📕 Cuaderno anillado tapa dura" },
-        { value: "Cuaderno tapa blanda abrochado", label: "📙 Cuaderno tapa blanda abrochado (hasta 60 hojas)" },
-        { value: "Agenda docente nivel sec/univ/sup", label: "👨‍🏫 Agenda docente nivel sec / univ / sup" },
-        { value: "Agenda docente nivel prim", label: "👩‍🏫 Agenda docente nivel prim" },
-        { value: "Agenda docente nivel inicial", label: "👶 Agenda docente nivel inicial" }
+        // { value: "Agenda diaria", label: "📅 Agenda diaria", type: 'default' },
+        // { value: "Agenda 2 días x hoja", label: "📅 Agenda 2 días x hoja", type: 'default' },
+        // { value: "Agenda semanal", label: "📅 Agenda semanal", type: 'default' },
+        // { value: "Planner mensual 2026", label: "📆 Planner mensual 2026", type: 'default' },
+        // { value: "Planner mensual perpetuo", label: "📆 Planner mensual perpetuo", type: 'default' },
+        // { value: "Planner semanal perpetuo", label: "📆 Planner semanal perpetuo", type: 'default' },
+        // { value: "Cuaderno anillado tapa dura", label: "📕 Cuaderno anillado tapa dura", type: 'default' },
+        // { value: "Cuaderno tapa blanda abrochado", label: "📙 Cuaderno tapa blanda abrochado (hasta 60 hojas)", type: 'default' },
+        // { value: "Agenda docente nivel sec/univ/sup", label: "👨‍🏫 Agenda docente nivel sec / univ / sup", type: 'default' },
+        // { value: "Agenda docente nivel prim", label: "👩‍🏫 Agenda docente nivel prim", type: 'default' },
+        // { value: "Agenda docente nivel inicial", label: "👶 Agenda docente nivel inicial", type: 'default' }
     ];
     
     const custom = customProducts.map(p => ({
         value: p.name,
-        label: `${p.emoji || '📦'} ${p.name}`
+        label: `${p.emoji || '📦'} ${p.name}`,
+        type: 'custom'
     }));
     
-    return [...defaultProducts, ...custom];
+    const recipes = productRecipes.map(p => ({
+        value: p.name,
+        label: `${p.emoji || '📦'} ${p.name}`,
+        type: 'recipe',
+        recipeId: p.id
+    }));
+    
+    return [...defaultProducts, ...custom, ...recipes];
 }
 
 // Abrir modal de gestión de productos
@@ -1092,4 +1150,632 @@ async function deleteCustomProduct(productId) {
             });
         }
     }
+}
+// ========================================
+// 📦 SISTEMA DE INVENTARIO
+// ========================================
+
+// Cargar materiales del inventario
+function loadInventoryMaterials() {
+    if (materialsUnsubscribe) materialsUnsubscribe();
+    
+    const { collection, query, where, onSnapshot } = window.firestoreLib;
+    const q = query(
+        collection(window.db, 'materials'),
+        where('userId', '==', window.currentUser.uid)
+    );
+
+    materialsUnsubscribe = onSnapshot(q, (snapshot) => {
+        inventoryMaterials = [];
+        snapshot.forEach((doc) => {
+            inventoryMaterials.push({ id: doc.id, ...doc.data() });
+        });
+        renderMaterialsGrid();
+    });
+}
+
+// Cargar recetas de productos
+function loadProductRecipes() {
+    if (recipesUnsubscribe) recipesUnsubscribe();
+    
+    const { collection, query, where, onSnapshot } = window.firestoreLib;
+    const q = query(
+        collection(window.db, 'productRecipes'),
+        where('userId', '==', window.currentUser.uid)
+    );
+
+    recipesUnsubscribe = onSnapshot(q, (snapshot) => {
+        productRecipes = [];
+        snapshot.forEach((doc) => {
+            productRecipes.push({ id: doc.id, ...doc.data() });
+        });
+        renderRecipesList();
+    });
+}
+
+// Abrir gestor de inventario
+function openInventoryManager() {
+    document.getElementById('inventoryModal').style.display = 'block';
+    switchInventoryTab('materials');
+    renderMaterialsGrid();
+    renderRecipesList();
+}
+
+// Cerrar gestor de inventario
+function closeInventoryManager() {
+    document.getElementById('inventoryModal').style.display = 'none';
+    document.getElementById('addMaterialForm').reset();
+    document.getElementById('addRecipeForm').reset();
+    document.getElementById('recipeMaterialsContainer').innerHTML = '';
+    recipeMaterialCounter = 0;
+}
+
+// Cambiar entre tabs
+function switchInventoryTab(tab) {
+    const tabs = document.querySelectorAll('.inventory-tab');
+    const contents = document.querySelectorAll('.inventory-tab-content');
+    
+    tabs.forEach(t => t.classList.remove('active'));
+    contents.forEach(c => c.classList.remove('active'));
+    
+    if (tab === 'materials') {
+        tabs[0].classList.add('active');
+        document.getElementById('materialsTab').classList.add('active');
+    } else {
+        tabs[1].classList.add('active');
+        document.getElementById('recipesTab').classList.add('active');
+    }
+}
+
+// Renderizar grid de materiales
+function renderMaterialsGrid() {
+    const container = document.getElementById('materialsGrid');
+    
+    if (inventoryMaterials.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px; grid-column: 1/-1;">No hay materiales en el inventario</p>';
+        return;
+    }
+    
+    container.innerHTML = inventoryMaterials.map(material => `
+        <div class="material-card ${material.stock <= (material.minStock || 10) ? 'low-stock' : ''}">
+            <div class="material-header">
+                <h4>${material.name}</h4>
+                ${material.stock <= (material.minStock || 10) ? '<span class="low-stock-badge">⚠️ Stock Bajo</span>' : ''}
+            </div>
+            <div class="material-stock">
+                <span class="stock-number">${material.stock}</span>
+                <span class="stock-unit">${material.unit}</span>
+            </div>
+            <div class="material-actions">
+                <button onclick="adjustStock('${material.id}', 'add')" class="stock-btn add">+ Agregar</button>
+                <button onclick="adjustStock('${material.id}', 'remove')" class="stock-btn remove">- Quitar</button>
+                <button onclick="deleteMaterial('${material.id}')" class="stock-btn delete">🗑️</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Ajustar stock de material
+async function adjustStock(materialId, action) {
+    const material = inventoryMaterials.find(m => m.id === materialId);
+    if (!material) return;
+    
+    const { value: amount } = await Swal.fire({
+        title: `${action === 'add' ? 'Agregar' : 'Quitar'} Stock`,
+        html: `
+            <p><strong>${material.name}</strong></p>
+            <p>Stock actual: ${material.stock} ${material.unit}</p>
+        `,
+        input: 'number',
+        inputLabel: `Cantidad a ${action === 'add' ? 'agregar' : 'quitar'}`,
+        inputPlaceholder: '0',
+        inputAttributes: {
+            min: 0,
+            step: 1
+        },
+        showCancelButton: true,
+        confirmButtonColor: '#667eea',
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'Confirmar',
+        inputValidator: (value) => {
+            if (!value || value <= 0) {
+                return 'Ingresa una cantidad válida';
+            }
+            if (action === 'remove' && parseInt(value) > material.stock) {
+                return 'No hay suficiente stock';
+            }
+        }
+    });
+    
+    if (amount) {
+        const newStock = action === 'add' 
+            ? material.stock + parseInt(amount)
+            : material.stock - parseInt(amount);
+        
+        try {
+            const { updateDoc, doc } = window.firestoreLib;
+            await updateDoc(doc(window.db, 'materials', materialId), {
+                stock: newStock
+            });
+            
+            Swal.fire({
+                title: '¡Actualizado!',
+                text: `Nuevo stock: ${newStock} ${material.unit}`,
+                icon: 'success',
+                confirmButtonColor: '#667eea',
+                timer: 2000
+            });
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudo actualizar el stock',
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
+        }
+    }
+}
+
+// Eliminar material
+async function deleteMaterial(materialId) {
+    const result = await Swal.fire({
+        title: '¿Eliminar este material?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#667eea',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const { deleteDoc, doc } = window.firestoreLib;
+            await deleteDoc(doc(window.db, 'materials', materialId));
+            
+            Swal.fire({
+                title: '¡Eliminado!',
+                icon: 'success',
+                confirmButtonColor: '#667eea',
+                timer: 2000
+            });
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudo eliminar el material',
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
+        }
+    }
+}
+
+// Agregar nuevo material
+document.getElementById('addMaterialForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('newMaterialName').value.trim();
+    const stock = parseInt(document.getElementById('newMaterialStock').value);
+    const unit = document.getElementById('newMaterialUnit').value.trim();
+    
+    try {
+        const { collection, addDoc } = window.firestoreLib;
+        
+        await addDoc(collection(window.db, 'materials'), {
+            userId: window.currentUser.uid,   // 🔥 Necesario por las rules
+            name: name,
+            stock: stock,
+            unit: unit,
+            minStock: 10,
+            createdAt: new Date().toISOString()
+        });
+        
+        Swal.fire({
+            title: '¡Material agregado!',
+            icon: 'success',
+            confirmButtonColor: '#667eea',
+            timer: 2000
+        });
+        
+        document.getElementById('addMaterialForm').reset();
+    } catch (error) {
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudo agregar el material: ' + error.message,
+            icon: 'error',
+            confirmButtonColor: '#667eea'
+        });
+    }
+});
+
+// Renderizar lista de recetas
+function renderRecipesList() {
+    const container = document.getElementById('recipesList');
+    
+    if (productRecipes.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #999; padding: 40px;">No hay productos con receta definida</p>';
+        return;
+    }
+    
+    container.innerHTML = productRecipes.map(recipe => `
+        <div class="recipe-card">
+            <div class="recipe-header">
+                <h4>${recipe.emoji || '📦'} ${recipe.name}</h4>
+                <button onclick="deleteRecipe('${recipe.id}')" class="delete-recipe-btn">🗑️ Eliminar</button>
+            </div>
+            <div class="recipe-materials">
+                <strong>Materiales necesarios:</strong>
+                <ul>
+                    ${recipe.materials.map(m => `
+                        <li>${m.quantity} ${m.unit} de ${m.materialName}</li>
+                    `).join('')}
+                </ul>
+            </div>
+            <div class="recipe-stock-info">
+                ${getRecipeStockStatus(recipe)}
+            </div>
+        </div>
+    `).join('');
+}
+
+// Verificar si hay stock suficiente para un producto
+function getRecipeStockStatus(recipe) {
+    let canMake = Infinity;
+    let warnings = [];
+    
+    recipe.materials.forEach(recMat => {
+        const material = inventoryMaterials.find(m => m.id === recMat.materialId);
+        if (!material) {
+            warnings.push(`⚠️ Material "${recMat.materialName}" no encontrado`);
+            canMake = 0;
+        } else {
+            const possible = Math.floor(material.stock / recMat.quantity);
+            canMake = Math.min(canMake, possible);
+        }
+    });
+    
+    if (warnings.length > 0) {
+        return `<span class="stock-warning">${warnings.join('<br>')}</span>`;
+    }
+    
+    if (canMake === 0) {
+        return '<span class="stock-error">❌ Sin stock suficiente</span>';
+    } else if (canMake < 5) {
+        return `<span class="stock-warning">⚠️ Puedes hacer ${canMake} unidades</span>`;
+    } else {
+        return `<span class="stock-ok">✅ Puedes hacer ${canMake} unidades</span>`;
+    }
+}
+
+// Agregar material a la receta
+function addRecipeMaterial() {
+    recipeMaterialCounter++;
+    const container = document.getElementById('recipeMaterialsContainer');
+    const div = document.createElement('div');
+    div.className = 'recipe-material-item';
+    div.id = `recipe-material-${recipeMaterialCounter}`;
+    
+    div.innerHTML = `
+        <select class="recipe-material-select" required>
+            <option value="">Seleccionar material...</option>
+            ${inventoryMaterials.map(m => `
+                <option value="${m.id}" data-unit="${m.unit}">${m.name} (${m.stock} ${m.unit} disponibles)</option>
+            `).join('')}
+        </select>
+        <input type="number" class="recipe-material-quantity" placeholder="Cantidad" min="0.01" step="0.01" required>
+        <span class="recipe-material-unit"></span>
+        <button type="button" class="remove-recipe-material" onclick="removeRecipeMaterial(${recipeMaterialCounter})">×</button>
+    `;
+    
+    container.appendChild(div);
+    
+    // Listener para actualizar la unidad
+    const select = div.querySelector('.recipe-material-select');
+    const unitSpan = div.querySelector('.recipe-material-unit');
+    select.addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        const unit = option.dataset.unit || '';
+        unitSpan.textContent = unit;
+    });
+}
+
+// Quitar material de la receta
+function removeRecipeMaterial(id) {
+    const element = document.getElementById(`recipe-material-${id}`);
+    if (element) element.remove();
+}
+
+// Crear nueva receta de producto
+document.getElementById('addRecipeForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const name = document.getElementById('newRecipeName').value.trim();
+    const emoji = document.getElementById('newRecipeEmoji').value.trim();
+    
+    const materialItems = document.querySelectorAll('.recipe-material-item');
+    if (materialItems.length === 0) {
+        Swal.fire({
+            title: 'Sin materiales',
+            text: 'Debes agregar al menos un material',
+            icon: 'warning',
+            confirmButtonColor: '#667eea'
+        });
+        return;
+    }
+    
+    const materials = [];
+    materialItems.forEach(item => {
+        const select = item.querySelector('.recipe-material-select');
+        const quantity = parseFloat(item.querySelector('.recipe-material-quantity').value);
+        const materialId = select.value;
+        const materialName = select.options[select.selectedIndex].text.split(' (')[0];
+        const unit = select.options[select.selectedIndex].dataset.unit;
+        
+        materials.push({
+            materialId,
+            materialName,
+            quantity,
+            unit
+        });
+    });
+    
+    try {
+        const { collection, addDoc } = window.firestoreLib;
+        
+        await addDoc(collection(window.db, 'productRecipes'), {
+            userId: window.currentUser.uid,
+            name: name,
+            emoji: emoji || '📦',
+            materials: materials,
+            createdAt: new Date().toISOString()
+        });
+        
+        Swal.fire({
+            title: '¡Producto creado!',
+            text: 'La receta fue guardada correctamente',
+            icon: 'success',
+            confirmButtonColor: '#667eea',
+            timer: 2000
+        });
+        
+        document.getElementById('addRecipeForm').reset();
+        document.getElementById('recipeMaterialsContainer').innerHTML = '';
+        recipeMaterialCounter = 0;
+    } catch (error) {
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudo crear el producto',
+            icon: 'error',
+            confirmButtonColor: '#667eea'
+        });
+    }
+});
+
+// Eliminar receta
+async function deleteRecipe(recipeId) {
+    const result = await Swal.fire({
+        title: '¿Eliminar este producto?',
+        text: 'Esta acción no se puede deshacer',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#667eea',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+        try {
+            const { deleteDoc, doc } = window.firestoreLib;
+            await deleteDoc(doc(window.db, 'productRecipes', recipeId));
+            
+            Swal.fire({
+                title: '¡Eliminado!',
+                icon: 'success',
+                confirmButtonColor: '#667eea',
+                timer: 2000
+            });
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudo eliminar el producto',
+                icon: 'error',
+                confirmButtonColor: '#667eea'
+            });
+        }
+    }
+}
+
+// ========================================
+// 🔄 MODIFICAR getAllProducts() para incluir productos con receta
+// ========================================
+
+// Descontar inventario al crear/editar pedido
+async function deductInventoryForOrder(products) {
+    const { updateDoc, doc } = window.firestoreLib;
+    const deductions = {};
+    
+    console.log('🔍 Iniciando deducción de inventario para productos:', products);
+    
+    // Calcular total a descontar por material
+    for (const product of products) {
+        console.log('📦 Procesando producto:', product.name);
+        
+        // 🎯 SI EL PRODUCTO CONTIENE "STICKER" → DESCONTAR PLANCHAS DEL MATERIAL ESPECÍFICO
+        const esSticker = product.name.toLowerCase().includes('sticker');
+        
+        if (esSticker && product.stickerSheets && parseInt(product.stickerSheets) > 0) {
+            const cantidad = parseInt(product.stickerSheets);
+            const productNameLower = product.name.toLowerCase();
+            
+            console.log(`🎨 Es un sticker: "${product.name}", buscando material específico...`);
+            
+            // 🔍 Buscar material ESPECÍFICO basado en el nombre del producto
+            let stickerMaterial = null;
+            
+            // Buscar por palabras clave en el NOMBRE DEL PRODUCTO
+            if (productNameLower.includes('holofan')) {
+                stickerMaterial = inventoryMaterials.find(m => 
+                    m.name.toLowerCase().includes('holofan')
+                );
+                console.log('🔍 Buscando HOLOFAN...');
+            } else if (productNameLower.includes('vinilo')) {
+                stickerMaterial = inventoryMaterials.find(m => 
+                    m.name.toLowerCase().includes('vinilo')
+                );
+                console.log('🔍 Buscando VINILO...');
+            } else if (productNameLower.includes('autoadhesivo') || productNameLower.includes('autoadesivo')) {
+                stickerMaterial = inventoryMaterials.find(m => {
+                    const nameLower = m.name.toLowerCase();
+                    return nameLower.includes('papel autoadhesivo') || 
+                           nameLower.includes('autoadesivo');
+                });
+                console.log('🔍 Buscando PAPEL AUTOADHESIVO...');
+            } else {
+                // Si no tiene palabra clave específica, buscar cualquier material de sticker
+                stickerMaterial = inventoryMaterials.find(m => {
+                    const nameLower = m.name.toLowerCase();
+                    return nameLower.includes('holofan') || 
+                           nameLower.includes('vinilo') ||
+                           nameLower.includes('papel autoadhesivo') ||
+                           nameLower.includes('autoadesivo');
+                });
+                console.log('🔍 Buscando cualquier material de sticker...');
+            }
+            
+            if (stickerMaterial) {
+                if (!deductions[stickerMaterial.id]) {
+                    deductions[stickerMaterial.id] = 0;
+                }
+                deductions[stickerMaterial.id] += cantidad;
+                console.log(`  ✅ Deduciendo ${cantidad} ${stickerMaterial.unit} de ${stickerMaterial.name}`);
+            } else {
+                console.warn('⚠️ NO se encontró material de stickers para:', product.name);
+                console.log('📋 Materiales disponibles:', inventoryMaterials.map(m => m.name));
+                
+                Swal.fire({
+                    title: 'Aviso',
+                    html: `No se encontró material de stickers para "${product.name}".<br><br>
+                           <strong>Asegúrate de incluir:</strong> "holofan", "vinilo" o "autoadhesivo" en el nombre del producto`,
+                    icon: 'warning',
+                    confirmButtonColor: '#667eea'
+                });
+            }
+            
+            // ⚠️ IMPORTANTE: Saltar la parte de la receta
+            continue;
+        }
+        
+        // 📋 CASO NORMAL: Productos SIN "sticker" en el nombre → Usar receta
+        const recipe = productRecipes.find(r => r.name === product.name);
+        if (recipe) {
+            console.log('📋 Producto tiene receta:', recipe.name);
+            recipe.materials.forEach(mat => {
+                if (!deductions[mat.materialId]) {
+                    deductions[mat.materialId] = 0;
+                }
+                deductions[mat.materialId] += mat.quantity;
+                console.log(`  ✅ Deduciendo ${mat.quantity} ${mat.unit} de ${mat.materialName}`);
+            });
+        }
+    }
+    
+    // Aplicar deducciones
+    console.log('💾 Aplicando deducciones:', deductions);
+    
+    const promises = Object.entries(deductions).map(async ([materialId, amount]) => {
+        const material = inventoryMaterials.find(m => m.id === materialId);
+        if (material) {
+            const newStock = Math.max(0, material.stock - amount);
+            await updateDoc(doc(window.db, 'materials', materialId), {
+                stock: newStock
+            });
+            console.log(`✅ ${material.name}: ${material.stock} → ${newStock} (descontado ${amount})`);
+            
+            // Alerta si el stock quedó bajo
+            if (newStock <= (material.minStock || 10) && material.stock > (material.minStock || 10)) {
+                Swal.fire({
+                    title: '⚠️ Stock Bajo',
+                    text: `El material "${material.name}" ahora tiene solo ${newStock} ${material.unit}`,
+                    icon: 'warning',
+                    confirmButtonColor: '#667eea',
+                    timer: 3000
+                });
+            }
+        }
+    });
+    
+    await Promise.all(promises);
+    console.log('✅ Inventario actualizado correctamente');
+}
+
+// 🔙 Nueva función para DEVOLVER inventario al eliminar pedido
+async function returnInventoryForOrder(products) {
+    const { updateDoc, doc } = window.firestoreLib;
+    const returns = {};
+    
+    console.log('🔙 Iniciando devolución de inventario para productos:', products);
+    
+    // Calcular total a devolver por material (MISMA LÓGICA QUE deductInventoryForOrder)
+    for (const product of products) {
+        console.log('📦 Procesando producto:', product.name);
+        
+        // 🎯 SI EL PRODUCTO CONTIENE "STICKER" → DEVOLVER PLANCHAS
+        const esSticker = product.name.toLowerCase().includes('sticker');
+        
+        if (esSticker && product.stickerSheets && parseInt(product.stickerSheets) > 0) {
+            const cantidad = parseInt(product.stickerSheets);
+            console.log(`🎨 Es un sticker, devolviendo ${cantidad} planchas`);
+            
+            // Buscar materiales de sticker
+            const stickerMaterial = inventoryMaterials.find(m => {
+                const nameLower = m.name.toLowerCase();
+                return nameLower.includes('holofan') || 
+                       nameLower.includes('vinilo') ||
+                       nameLower.includes('papel autoadhesivo') ||
+                       nameLower.includes('autoadesivo');
+            });
+            
+            if (stickerMaterial) {
+                if (!returns[stickerMaterial.id]) {
+                    returns[stickerMaterial.id] = 0;
+                }
+                returns[stickerMaterial.id] += cantidad;
+                console.log(`  ✅ Devolviendo ${cantidad} ${stickerMaterial.unit} de ${stickerMaterial.name}`);
+            }
+            
+            continue;
+        }
+        
+        // 📋 CASO NORMAL: Productos con receta
+        const recipe = productRecipes.find(r => r.name === product.name);
+        if (recipe) {
+            console.log('📋 Producto tiene receta:', recipe.name);
+            recipe.materials.forEach(mat => {
+                if (!returns[mat.materialId]) {
+                    returns[mat.materialId] = 0;
+                }
+                returns[mat.materialId] += mat.quantity;
+                console.log(`  ✅ Devolviendo ${mat.quantity} ${mat.unit} de ${mat.materialName}`);
+            });
+        }
+    }
+    
+    // Aplicar devoluciones
+    console.log('💾 Aplicando devoluciones:', returns);
+    
+    const promises = Object.entries(returns).map(async ([materialId, amount]) => {
+        const material = inventoryMaterials.find(m => m.id === materialId);
+        if (material) {
+            const newStock = material.stock + amount;
+            await updateDoc(doc(window.db, 'materials', materialId), {
+                stock: newStock
+            });
+            console.log(`✅ ${material.name}: ${material.stock} → ${newStock} (devuelto ${amount})`);
+        }
+    });
+    
+    await Promise.all(promises);
+    console.log('✅ Inventario devuelto correctamente');
 }

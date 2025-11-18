@@ -42,7 +42,7 @@
                 <div class="controls-row">
                     <button class="add-order-btn" onclick="openModal()">+ Agregar Pedido</button>
                     <button class="manage-products-btn" onclick="openProductsManager()">⚙️ Gestionar Productos</button>
-                    <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
+                    <button class="manage-inventory-btn" onclick="openInventoryManager()">📦 Gestionar Inventario</button>                    <select class="sort-select" id="sortSelect" onchange="changeSortOption()">
                         <option value="date-asc">Fecha de Pedido (Antigua → Nueva)</option>
                         <option value="date-desc">Fecha de Pedido (Nueva → Antigua)</option>
                         <option value="delivery-asc">Fecha Estimada (Próxima → Lejana)</option>
@@ -159,6 +159,71 @@
             </div>
         </div>
     </div>
+    <!-- Modal de Inventario -->
+        <div class="modal" id="inventoryModal">
+            <div class="modal-content" style="max-width: 1000px;">
+                <span class="close-modal" onclick="closeInventoryManager()">&times;</span>
+                <h2 style="color: #667eea; margin-bottom: 30px;">📦 Gestión de Inventario y Productos</h2>
+                
+                <div class="inventory-tabs">
+                    <button class="inventory-tab active" onclick="switchInventoryTab('materials')">
+                        🧰 Materiales en Stock
+                    </button>
+                    <button class="inventory-tab" onclick="switchInventoryTab('recipes')">
+                        📋 Recetas de Productos
+                    </button>
+                </div>
+
+                <!-- Tab de Materiales -->
+                <div id="materialsTab" class="inventory-tab-content active">
+                    <div class="materials-grid" id="materialsGrid"></div>
+                    
+                    <form id="addMaterialForm" style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+                        <h3 style="color: #667eea; margin-bottom: 20px;">Agregar Material</h3>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 100px; gap: 15px; align-items: end;">
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Nombre del Material *</label>
+                                <input type="text" id="newMaterialName" required placeholder="Ej: Hojas A4">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Stock Inicial *</label>
+                                <input type="number" id="newMaterialStock" required min="0" placeholder="100">
+                            </div>
+                            <div class="form-group" style="margin-bottom: 0;">
+                                <label>Unidad *</label>
+                                <input type="text" id="newMaterialUnit" required placeholder="hojas, unidades, metros">
+                            </div>
+                            <button type="submit" class="submit-btn" style="margin: 0; padding: 12px;">Agregar</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Tab de Recetas -->
+                <div id="recipesTab" class="inventory-tab-content">
+                    <div class="recipes-list" id="recipesList"></div>
+                    
+                    <form id="addRecipeForm" style="margin-top: 30px; padding-top: 30px; border-top: 2px solid #e0e0e0;">
+                        <h3 style="color: #667eea; margin-bottom: 20px;">Crear Producto con Receta</h3>
+                        <div class="form-group">
+                            <label>Nombre del Producto *</label>
+                            <input type="text" id="newRecipeName" required placeholder="Ej: Agenda 2026 Completa">
+                        </div>
+                        <div class="form-group">
+                            <label>Emoji (opcional)</label>
+                            <input type="text" id="newRecipeEmoji" maxlength="2" placeholder="📅">
+                        </div>
+                        
+                        <h4 style="color: #667eea; margin: 20px 0 15px 0;">Materiales Necesarios</h4>
+                        <div id="recipeMaterialsContainer"></div>
+                        <button type="button" class="add-product-btn" onclick="addRecipeMaterial()" style="margin-bottom: 20px;">
+                            <span>+</span> Agregar Material
+                        </button>
+                        
+                        <button type="submit" class="submit-btn">Crear Producto</button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
     <!-- Firebase -->
     <script type="module">
