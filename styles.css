@@ -221,7 +221,7 @@ body {
 
 .controls-row {
     display: flex;
-    gap: 15px;
+    gap: 10px;
     margin-bottom: 30px;
     flex-wrap: wrap;
 }
@@ -1659,4 +1659,5 @@ body {
         padding: 5px;
         font-size: 10px;
     }
+
 }
