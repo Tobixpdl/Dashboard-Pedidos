@@ -128,7 +128,7 @@ async function sendNewOrderEmail(order) {
 
 function init() {
     renderMonths();
-    selectMonth(months[0].id);
+    selectMonth(months[1].id);
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('orderDate').value = today;
     loadOrders();
@@ -1793,4 +1793,5 @@ async function returnInventoryForOrder(products) {
     
     await Promise.all(promises);
     console.log('✅ Inventario devuelto correctamente');
+
 }
