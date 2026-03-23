@@ -104,6 +104,9 @@
                     <div class="total-calculator">
                         <h3>Precio Final</h3>
                         <div class="price" id="totalPrice">$0.00</div>
+                        <div id="remainingPrice" style="margin-top:10px; font-size:1.1em; font-weight:600; color:#e67e22; display:none;">
+                            Falta abonar: $0.00
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -112,18 +115,20 @@
                             <option value="">Seleccionar...</option>
                             <option value="Efectivo">Efectivo</option>
                             <option value="Transferencia">Transferencia</option>
-                            <option value="Mercado Pago">Mercado Pago</option>
-                            <option value="Tarjeta">Tarjeta</option>
                         </select>
                     </div>
 
                     <div class="form-group" id="paymentStatusGroup">
                         <label>Estado del Pago *</label>
-                        <select id="paymentStatus" required>
+                        <select id="paymentStatus" required onchange="handlePaymentStatusChange()">
                             <option value="Pendiente">Pendiente</option>
                             <option value="Senado">Señado</option>
                             <option value="Pagado">Pagado</option>
                         </select>
+                    </div>
+                    <div class="form-group hidden" id="partialPaymentGroup">
+                        <label>Monto señado ($)</label>
+                        <input type="number" id="partialPaymentAmount" min="0" step="0.01" value="0" oninput="updateTotalPrice()" placeholder="Ej: 5000">
                     </div>
                     
                     <div class="form-group" id="orderStatusGroup">

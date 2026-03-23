@@ -145,30 +145,44 @@ body {
 }
 
 .months-container {
-    padding: 30px;
+    padding: 15px 30px;
     background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.months-container::before {
+    content: '📅 Mes:';
+    font-weight: 600;
+    color: #667eea;
+    white-space: nowrap;
+    font-size: 14px;
 }
 
 .months-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 15px;
-    margin-bottom: 30px;
+    display: none;
 }
 
 .months-select {
-    display: none;
-    width: 100%;
-    padding: 15px;
+    display: block;
+    width: auto;
+    min-width: 180px;
+    padding: 8px 14px;
     border: 2px solid #667eea;
-    border-radius: 12px;
-    font-size: 16px;
+    border-radius: 10px;
+    font-size: 15px;
     font-weight: 600;
     color: #667eea;
     background: white;
     cursor: pointer;
-    box-shadow: 0 3px 10px rgba(102, 126, 234, 0.2);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
     transition: all 0.3s ease;
+}
+
+.months-select:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.25);
 }
 
 .month-button {
@@ -221,7 +235,7 @@ body {
 
 .controls-row {
     display: flex;
-    gap: 10px;
+    gap: 15px;
     margin-bottom: 30px;
     flex-wrap: wrap;
 }
@@ -1659,5 +1673,4 @@ body {
         padding: 5px;
         font-size: 10px;
     }
-
 }

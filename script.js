@@ -126,10 +126,32 @@ async function sendNewOrderEmail(order) {
         });    }
 }
 
+function handlePaymentStatusChange() {
+    const paymentStatus = document.getElementById('paymentStatus').value;
+    const partialGroup = document.getElementById('partialPaymentGroup');
+    const partialInput = document.getElementById('partialPaymentAmount');
+
+    if (paymentStatus === 'Senado') {
+        partialGroup.classList.remove('hidden');
+    } else {
+        partialGroup.classList.add('hidden');
+        partialInput.value = 0;
+    }
+
+    updateTotalPrice();
+}
+
 function init() {
     renderMonths();
-    selectMonth(months[1].id);
-    const today = new Date().toISOString().split('T')[0];
+    
+    // Seleccionar el mes actual automáticamente
+    const now = new Date();
+    const monthNames = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const currentMonthId = `${monthNames[now.getMonth()]}-${now.getFullYear()}`;
+    const found = months.find(m => m.id === currentMonthId);
+    selectMonth(found ? currentMonthId : months[0].id);
+
+    const today = now.toISOString().split('T')[0];
     document.getElementById('orderDate').value = today;
     loadOrders();
     loadCustomProducts();
@@ -221,6 +243,8 @@ function openModal(orderId = null) {
             document.getElementById('paymentMethod').value = order.paymentMethod;
             document.getElementById('paymentStatus').value = order.paymentStatus;
             document.getElementById('orderStatus').value = order.orderStatus;
+            document.getElementById('partialPaymentAmount').value = order.partialPaymentAmount || 0;
+            handlePaymentStatusChange();
 
             order.products.forEach(product => {
                 addProduct(product);
@@ -238,6 +262,8 @@ function openModal(orderId = null) {
         document.getElementById('editingOrderId').value = '';
         document.getElementById('customerEmail').value = '';
         document.getElementById('customerPhone').value = '';
+        document.getElementById('partialPaymentAmount').value = 0;
+handlePaymentStatusChange();
         addProduct();
     }
     
@@ -288,11 +314,6 @@ function addProduct(productData = null) {
         </div>
 
         <div class="form-group">
-            <label>Color de Anillado *</label>
-            <input type="text" class="product-color" required value="${productData?.color || ''}">
-        </div>
-
-        <div class="form-group">
             <label>Foto de la Tapa</label>
             <input type="file" class="product-cover" accept="image/*" onchange="previewImage(this, ${productCounter})">
             <img class="image-preview" id="preview-${productCounter}" ${productData?.coverImage ? `src="${productData.coverImage}" style="display:block;"` : ''}>
@@ -332,11 +353,28 @@ function removeProduct(id) {
 function updateTotalPrice() {
     const priceInputs = document.querySelectorAll('.product-price');
     let total = 0;
+
     priceInputs.forEach(input => {
         const value = parseFloat(input.value) || 0;
         total += value;
     });
+
     document.getElementById('totalPrice').textContent = '$' + total.toFixed(2);
+
+    const paymentStatusEl = document.getElementById('paymentStatus');
+    const partialInput = document.getElementById('partialPaymentAmount');
+    const remainingEl = document.getElementById('remainingPrice');
+
+    if (paymentStatusEl && paymentStatusEl.value === 'Senado') {
+        const partial = parseFloat(partialInput?.value) || 0;
+        const remaining = Math.max(0, total - partial);
+
+        remainingEl.style.display = 'block';
+        remainingEl.textContent = `Falta abonar: $${remaining.toFixed(2)}`;
+    } else {
+        remainingEl.style.display = 'none';
+        remainingEl.textContent = 'Falta abonar: $0.00';
+    }
 }
 
 function previewImage(input, id) {
@@ -351,9 +389,34 @@ function previewImage(input, id) {
     }
 }
 
+// 🗜️ Comprime una imagen base64 a max 500px / calidad 0.65
+function compressBase64Image(base64, maxSize = 500, quality = 0.65) {
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            let w = img.width, h = img.height;
+            if (w > maxSize || h > maxSize) {
+                if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+                else       { w = Math.round(w * maxSize / h); h = maxSize; }
+            }
+            canvas.width = w; canvas.height = h;
+            canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+        };
+        img.onerror = () => resolve(base64); // si falla, devuelve original
+        img.src = base64;
+    });
+}
+
+// 📏 Estima el tamaño en bytes de un objeto JSON
+function estimateJsonBytes(obj) {
+    return new Blob([JSON.stringify(obj)]).size;
+}
+
 document.getElementById('orderForm').addEventListener('submit', async function(e) {
     e.preventDefault();
-
+    const partialPaymentAmount = parseFloat(document.getElementById('partialPaymentAmount')?.value) || 0;
     const editingOrderId = document.getElementById('editingOrderId').value;
     const customerName = document.getElementById('customerName').value;
     const customerEmail = document.getElementById('customerEmail').value;
@@ -413,7 +476,7 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             const name = item.querySelector('.product-name').value;
             const sheets = item.querySelector('.product-sheets').value || null;
             const description = item.querySelector('.product-description').value;
-            const color = item.querySelector('.product-color').value;
+            const color = 'NEGRO';
             const coverInput = item.querySelector('.product-cover');
             const existingCoverImage = item.querySelector('.existing-cover-image').value;
             const coverText = item.querySelector('.product-cover-text').value;
@@ -423,13 +486,14 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
            
             if (coverInput.files && coverInput.files[0]) {
                 const reader = new FileReader();
-                reader.onload = function(e) {
+                reader.onload = async function(e) {
+                    const compressed = await compressBase64Image(e.target.result);
                     resolve({
                         name,
                         sheets,
                         description,    
                         color,
-                        coverImage: e.target.result,
+                        coverImage: compressed,
                         coverText,
                         price,
                         stickerSheets
@@ -454,23 +518,73 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
     try {
         const products = await Promise.all(productPromises);
         const totalPrice = products.reduce((sum, p) => sum + p.price, 0);
-        const { collection, addDoc, updateDoc, doc } = window.firestoreLib;
+        const { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } = window.firestoreLib;
+
+        // 📏 Si el pedido es muy grande, separar las imágenes en sub-documentos
+        const CHUNK_BYTE_LIMIT = 700_000; // 700KB de margen seguro
+
+        // Función que guarda/actualiza el pedido manejando el tamaño
+        async function saveOrderWithChunks(orderId, baseData) {
+            // Probar si entra en un solo doc
+            const testSize = estimateJsonBytes({ ...baseData, products });
+            
+            if (testSize <= CHUNK_BYTE_LIMIT) {
+                // ✅ Entra en un solo documento
+                if (orderId) {
+                    await updateDoc(doc(window.db, 'orders', orderId), { ...baseData, products, productChunks: null });
+                } else {
+                    const ref = await addDoc(collection(window.db, 'orders'), { ...baseData, products, productChunks: null });
+                    return ref.id;
+                }
+            } else {
+                // ⚠️ Muy grande: guardar productos SIN imagen en el doc principal
+                // y las imágenes en sub-colección 'orderImages'
+                const productsWithoutImages = products.map(p => ({ ...p, coverImage: null }));
+                const productImages = products.map(p => p.coverImage || null);
+
+                const mainData = { ...baseData, products: productsWithoutImages, hasImageChunks: true };
+
+                let targetId = orderId;
+                if (orderId) {
+                    await updateDoc(doc(window.db, 'orders', orderId), mainData);
+                } else {
+                    const ref = await addDoc(collection(window.db, 'orders'), mainData);
+                    targetId = ref.id;
+                }
+
+                // Guardar/actualizar imágenes en sub-colección
+                const imagesRef = collection(window.db, 'orders', targetId, 'images');
+                // Limpiar anteriores si editando
+                if (orderId) {
+                    const oldImgs = await getDocs(imagesRef);
+                    await Promise.all(oldImgs.docs.map(d => deleteDoc(d.ref)));
+                }
+                // Guardar chunk por chunk (de a 5 imágenes)
+                const chunkSize = 5;
+                for (let i = 0; i < productImages.length; i += chunkSize) {
+                    await addDoc(imagesRef, {
+                        startIndex: i,
+                        images: productImages.slice(i, i + chunkSize)
+                    });
+                }
+                return targetId;
+            }
+        }
 
         if (editingOrderId) {
             // EDITAR PEDIDO EXISTENTE
             const oldOrder = orders.find(o => o.id === editingOrderId);
             const oldStatus = oldOrder?.orderStatus;
             
-            const orderRef = doc(window.db, 'orders', editingOrderId);
-            await updateDoc(orderRef, {
+            await saveOrderWithChunks(editingOrderId, {
                 customerName,
                 emailComprador: customerEmail,
                 telefonoComprador: customerPhone,
-                products,
                 paymentMethod,
                 paymentStatus,
                 orderStatus,
                 totalPrice,
+                partialPaymentAmount,
                 date: orderDate,
                 deliveryDate,
                 updatedAt: new Date().toISOString()
@@ -492,18 +606,18 @@ document.getElementById('orderForm').addEventListener('submit', async function(e
             // CREAR NUEVO PEDIDO
             const orderNumber = await generateOrderNumber();
             
-            await addDoc(collection(window.db, 'orders'), {
+            await saveOrderWithChunks(null, {
                 userId: window.currentUser.uid,
                 orderNumber: orderNumber,
                 month: currentMonth,
                 customerName,
                 emailComprador: customerEmail,
                 telefonoComprador: customerPhone,
-                products,
                 paymentMethod,
                 paymentStatus: 'Pendiente',
                 orderStatus: 'Pendiente',
                 totalPrice,
+                partialPaymentAmount,
                 date: orderDate,
                 deliveryDate, 
                 createdAt: new Date().toISOString()
@@ -1793,5 +1907,4 @@ async function returnInventoryForOrder(products) {
     
     await Promise.all(promises);
     console.log('✅ Inventario devuelto correctamente');
-
 }
