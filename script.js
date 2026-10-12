@@ -82,7 +82,7 @@ async function sendOrderStatusEmail(order, oldStatus, newStatus) {
     if (!order.emailComprador || oldStatus === newStatus) return;
     
     try {
-        await emailjs.send('service_j1geh17', 'template_vofz6ar', {
+        await emailjs.send('service_l4aiwkv', 'template_whcn74r', {
             to_email: order.emailComprador,
             to_name: order.customerName,
             order_status: newStatus,
@@ -107,7 +107,7 @@ async function sendNewOrderEmail(order) {
     if (!order.emailComprador) return;
     
     try {
-        await emailjs.send('service_j1geh17', 'template_ebl81v4', {
+        await emailjs.send('service_l4aiwkv', 'template_ak5ynk8', {
             to_email: order.emailComprador,
             to_name: order.customerName,
             products_list: order.products.map(p => `${p.name} - $${p.price.toFixed(2)}`).join('\n'),
